@@ -1,0 +1,384 @@
+
+/* -------------------------------------------------------------------------------------------------------- */
+   System level calls
+/* -------------------------------------------------------------------------------------------------------- */
+
+/api/ping
+    GET - (Accept: application/json)
+        Returns a "pong". Used for seeing if the API is up and running.
+
+
+/* -------------------------------------------------------------------------------------------------------- */
+  JOBS level  - for specific job info see "job level"
+/* -------------------------------------------------------------------------------------------------------- */
+
+/api/jobs
+    GET - (Accept: application/json)
+        Returns all jobs and their information from database. This can be an expensive job to run if there's
+        hundreds of thousands of jobs in the database.
+        Sample :
+        { "f30176c4-2e4b-11e6-ac3c-64006a58e852": {
+                "job_config":{"depth":"6"},
+                "job_id":"f30176c4-2e4b-11e6-ac3c-64006a58e852",
+                "endtime":1465481441924,
+                "approvedadapters":["helloworld","plusbang"],
+                "starttime":1465481441582,
+                "error_count":0,
+                "status":"FINISHED",
+                "create_date":"Tue Jun 14 15:31:18 EDT 2016"
+                "task_count":0}
+        }
+
+     POST - (Accept: application/json)
+              BULK Delete
+              Send:
+                  {'jobs':[ {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"}, {"job_id":"job2"}]}
+              Returns:
+                  {[ {"job_id":"0000", 'deleted':true, 'error':'if needed'}, ....]}
+
+
+/api/jobs/last/{count}
+    GET - (Accept: application/json)
+    This will get the last {count} jobs based on createdate
+
+
+/api/jobs/days/{days_ago}
+    GET - (Accept: application/json)
+    This will get jobs based on how old they are. For example, if you want jobs that were created SINCE 1 day ago:
+         /api/jobs/days/1
+         or week:
+         /api/jobs/days/7
+         or 30 days
+         /api/jobs/days/30
+
+
+/api/jobs/mins/{mins_ago}
+    GET - (Accept: application/json)
+    Just like /jobs/days, this works off minutes. If you want to get jobs that have been created SINCE 60 minutes ago
+         /api/jobs/mins/60
+
+
+/api/jobs/age/{days_old}
+    GET - (Accept: application/json)
+    This will get jobs based on age. If you want all jobs older than 30 days:
+         /api/jobs/age/30
+
+/api/jobs/status
+    GET - Accept: application/json
+         All jobs and all statuses are returned that are in the system
+         {{  'job_id': { reason, status }}
+
+    PUT - Accept: application/json
+        Expects an JSONArray of job_ids:
+           { "jobs": [ { 'job_id': 'id1' } ... ]
+        Only those job_ids are returned :
+         {{  'job_id': { reason, status }}
+
+/api/jobs/status/{status}
+    GET - (Accept: application/json)
+        Returns listing of jobs with the given status only.
+
+        Example:
+          http://localhost:9999/api/jobs/status/finished
+          http://localhost:9999/api/jobs/status/processing
+
+
+        Valid Status values are "NEW", PROCESSING", "FINISHED", "QUEUED", "STOPPED","EXPIRED", "RESET", "ERROR",
+        See the description for the /api/jobs call for more information
+
+
+/api/jobs/status/{status}/reason/{reason}
+    GET - (Accept: application/json)
+        Returns listing of jobs with the given status WITH the given reason string.
+
+        Example:
+          http://localhost:9999/api/jobs/status/RESET/reason/SOME_REASON
+
+        Valid Status values are "NEW", PROCESSING", "FINISHED", "QUEUED", "STOPPED","EXPIRED", "RESET", "ERROR",
+        See the description for the /api/jobs call for more information
+
+
+/api/jobs/cancel
+    PUT - (Accept: application/json)
+         BULK Cancel a job if it's currently processing.
+         Send:
+             {'jobs':[ {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"}, {"job_id":"job2"}]}'
+         Returns:
+             {[ {"job_id":"0000", 'cancelled':true, 'error':'if needed'}, ....]}
+
+
+
+/api/jobs/reset
+       PUT - (Accept: application/json)
+             Sends a reset command to the Coordinator. If you pass in a reason:
+                 {"reason": "WHATEVER_REASON" }
+                 This will be saved in the job and can be queried on later. For example:
+                 /api/jobs/status/RESET/reason/WHATEVER_REASON
+
+             If you set the global 'reason' all jobs will be set to that reason value.
+             Or, you can set a per-job reason. And if there's no per-job, the global one is used
+
+              Send:
+                  { 'reason': 'SOME_GLOBAL_REASON'
+                    'jobs':[
+                            {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"},
+                            {"job_id":"89dbdcbe-ff2d-4c94-b267-381ec7de4928", 'reason':"SOME_OTHER_REASON" }
+                            ]
+                  }
+              Returns:
+                  {[ {"job_id":"0000", 'reset':true, 'error':'if needed'}, ....]}
+
+
+
+
+/* -------------------------------------------------------------------------------------------------------- */
+   JOB Level Calls
+/* -------------------------------------------------------------------------------------------------------- */
+
+/api/job/<job_id>
+    GET - (Accept: application/json)
+        Returns listing of requested job data
+        { "f30176c4-2e4b-11e6-ac3c-64006a58e852": {
+                        "job_config":{"depth":"6"},
+                        "job_id":"f30176c4-2e4b-11e6-ac3c-64006a58e852",
+                        "endtime":1465481441924,
+                        "approvedadapters":["helloworld","plusbang"],
+                        "starttime":1465481441582,
+                        "error_count":0,
+                        "status":"FINISHED",
+                        "create_date":"Tue Jun 14 15:31:18 EDT 2016"
+                        "task_count":0}
+        }
+
+    DELETE - (Accept: application/json)
+        Deletes the given job id
+        Returns:
+          {"deleted":true,"job_id":"fbd3d4c4-3259-11e6-8da2-64006a58e852","status":200}
+          --OR--
+          {"deleted":false,"job_id":"4bdbdcbe-ff2d-4c94-b267-381ec7de4928",
+            "error":"Job with the id 4bdbdcbe-ff2d-4c94-b267-381ec7de4928 is not present in the database",
+            "status":500}
+
+    POST - (Accept: application/json)
+           DEFUNCT This has been moved to '/api/job'. Job_id is generated by Lemongrenade and passed back in response.
+           LG no longer accepts user generated job id's for new jobs.
+
+
+/api/job/{id}/graph
+    GET - (Accept: application/json)
+        Returns the job graph from Lemongraph
+
+/api/job/{id}/graph/cytoscape
+    GET - (Accept: application/json)
+        Returns the job graph from Lemongraph in Cytoscape format
+
+/api/job/<job_id>/insert
+     POST - (Accept: application/json)
+     Adds data to an EXISTING job  (Note: uses job_data instead of seed like the create job action
+      {
+         "job_data": {
+            "nodes": [
+               {
+                  "status": "new",
+                  "type": "id",
+                  "value": "somevaluehere1"
+               },
+               {
+                  "status": "new",
+                  "type": "id",
+                  "value": "somevaluehere2"
+               }
+            ],
+            "edges": []
+         },
+         "job_config": {
+            "depth": 4,
+            "ttl": 0,
+            "description": "job description",
+            "adapters": {
+               "HelloWorld": {},
+               "PlusBang": {}
+            }
+         }
+      }
+     }
+
+     Returns:
+     {"job_id":"be0c3944-2cda-11e6-86f1-64006a58e852","status":"added"}
+
+
+/api/job
+    POST - (Accept: application/json)
+        Creates a new job based off body data and returns the newly created job_id
+        job_config: depth defaults to 3,
+           TTL defaults to 0 (run forever). TTL only refers to the 'allowed running time' For example, if you
+            set TTL to 300 (5 minutes, and the job runs past 5 minutes, Lemongrenade will stop the job. The job
+            will be saved as is at that point.
+
+          Anything else in job_config is passed on to the adapters without modification or checking and is stored
+          in the "meta" tag.
+          {
+              "seed": {
+                 "nodes": [
+                 {
+                    "type": "id",
+                    "value": "somevaluehere1"
+                 },
+                 {
+                     "type": "id",
+                     "value": "somevaluehere2"
+                 }
+                ],
+                "edges": []
+              },
+              "job_config": {
+                "depth": 4,
+                "ttl": 0,
+                "description": "job description",
+                "adapters": {
+                    "HelloWorld": {},
+                    "PlusBang": {}
+                }
+             }
+          }
+
+        Returns:
+           {"job_id":"1159c020-3259-11e6-9a54-64006a58e852","status":"created"}
+
+
+/api/job/{job_id}/execute_adapters_on_nodes
+   POST - (Accept: application/json)
+      This function allows you to run a specific adapter or adapters on a specific list of nodes in a graph.
+      You must pass the node list as an JSONArray of node ID's as nodes. Only ID values are accepted.
+      The idea of the different adapter list (called 'onetimeadapterlist') is that it creates a unique and easy
+      to identify list that wont be confused with the existing adapter list that is stored in the job_config
+        {
+            "onetimeadapterlist":["plusbang"],
+             "nodes":["2","3","4"],
+        }
+      Returns:
+         {"job_id":"f42c2bf0-3244-11e6-9a54-64006a58e852","status":"submitted"}
+
+/api/job/{job_id}/status
+    GET -(Accept: application/json)
+        Returns just the status of a job
+        {"status":"FINISHED"}
+        If there's a reason associated with this job (usually on a RESET command), that value is returned:
+        {"reason":"SOME_REASON_USER_SENT","status":"RESET"}
+
+/api/job/{job_id}/full
+    GET -(Accept: application/json)
+        Returns ALL output for a specific job
+                        /api/job/{job_id}
+                        /api/job/{job_id}/history
+                        /api/job/{job_id}/tasks
+                        /api/job/{job_id}/errors
+
+
+/api/job/{job_id}/errors
+    GET - (Accept: application/json)
+        Returns the complete error list for a job
+        "errors": [
+         {
+            { "timestamp", "adapter", "adapter_id", "message"
+         }
+
+/api/job/{job_id}/tasks
+    GET - (Accept: application/json)
+        Returns the complete task list (similiar to history) for job
+        "tasks": [
+         {
+          "start_time": "Jul 07,2016 07:46:19",
+          "adapter_name": "HelloWorld",
+          "job_id": "6b74e526-4438-11e6-8f70-64006a58e852",
+          "end_time": "Jul 07,2016 07:46:19",
+          "task_id": "e99fe4ac-91f9-422f-9a23-3d0edc12cbfc",
+          "adapter_id": "00000000-0000-0000-0000-000000000005",
+          "status": "complete"
+         },
+         {
+          "start_time": "Jul 07,2016 07:46:19",
+          "adapter_name": "PlusBang",
+          "job_id": "6b74e526-4438-11e6-8f70-64006a58e852",
+          "end_time": "Jul 07,2016 07:46:20",
+          "task_id": "ff1516f2-7aa2-4615-b44c-8210dad897ae",
+          "adapter_id": "00000000-0000-0000-0000-000000000009",
+          "status": "complete"
+         }
+        ]}
+
+
+/api/job/{job_id}/history
+    GET - (Accept: application/json)
+        Returns the history and associated metrics of a job
+        {"history":[
+                {"enddate":"Jun 14,2016 11:30","graph_changes":1,"startdate":"Jun 14,2016 11:30","command":"HelloWorldPython:00000000-0000-0000-0000-000000000008"},
+                {"enddate":"Jun 14,2016 11:30","graph_changes":1,"startdate":"Jun 14,2016 11:30","command":"HelloWorld:00000000-0000-0000-0000-000000000005"},
+                {"enddate":"Jun 14,2016 11:30","graph_changes":7,"startdate":"Jun 14,2016 11:30","command":"PlusBang:00000000-0000-0000-0000-000000000009"},
+                {"enddate":"Jun 14,2016 12:22","graph_changes":6,"startdate":"Jun 14,2016 12:22","command":"PlusBang:00000000-0000-0000-0000-000000000009"},
+                {"enddate":"Jun 14,2016 12:59","graph_changes":2,"startdate":"Jun 14,2016 12:59","command":"HelloWorldPython:00000000-0000-0000-0000-000000000008"},
+                {"enddate":"Jun 14,2016 12:59","graph_changes":2,"startdate":"Jun 14,2016 12:59","command":"HelloWorld:00000000-0000-0000-0000-000000000005"},
+                {"enddate":"Jun 14,2016 12:59","graph_changes":14,"startdate":"Jun 14,2016 12:59","command":"PlusBang:00000000-0000-0000-0000-000000000009"},
+                {"enddate":"Jun 14,2016 13:55","graph_changes":6,"startdate":"Jun 14,2016 13:55","command":"PlusBang:00000000-0000-0000-0000-000000000009"}
+         ]}
+
+
+/api/job/{job_id}/cancel
+    PUT - Cancel a job if it is currently processing.
+
+/api/job/{job_id}/reset
+       PUT -
+             Sends a reset command to the Coordinator. If you pass in a reason:
+                 {"reason": "WHATEVER_REASON" }
+                 This will be saved in the job and can be queried on later. For example:
+                 /api/jobs/status/RESET/reason/WHATEVER_REASON
+
+
+
+
+/* -------------------------------------------------------------------------------------------------------- */
+   Adapter Level Calls
+/* -------------------------------------------------------------------------------------------------------- */
+
+/api/adapter/names
+    GET -
+        Returns a clean list of available adapter names available without UUID markup.
+        If there's more than one type of adapter available, the name is only returned once,
+        since the end user does not care about how many adapters are available only what
+        ones are available.
+
+        For example, if there exists:
+          0000-0000-0000-0000-00001-Adapter1 , 0000-0000-0000-0000-00002-Adapter1, 0000-0000-0000-0000-00003-Adapter2
+
+          This function will return:
+            {["Adapter1", "Adapter2"]}
+
+/api/adapter/
+    GET -
+        Returns the adapter list. Note: If RabbitMQ is set to SSL on the admin interface (port 15672), you will
+        not get the "queue" information in the returning JSON.
+        Returns:
+        {
+           "HelloWorldPython-00000000-0000-0000-0000-000000000008": {
+              "last_hb": 6,
+              "graphquery": "n(status~/.*/i,type~/.*/i,value~/.*/i,status!:number)",
+              "taskcount": "0",
+              "name": "HelloWorldPython",
+              "id": "00000000-0000-0000-0000-000000000008",
+              "type": "HelloWorldPython",
+              "queue": [
+                 {
+                    "messages_rate": 0,
+                    "name": "HelloWorldPython-00000000-0000-0000-0000-000000000008",
+                    "messages_ready": 0,
+                    "idle_since": "2016-05-31 15:13:06"
+                 }
+              ],
+              "uptime": 91047,
+              "graphdepth": ""
+           }
+        }
+
+/api/adapter/<uuid>
+    GET -
+        Returns info about specific adapter

@@ -1,0 +1,10 @@
+{
+  "topology.workers": 1,
+  "topology.message.timeout.secs": 120,
+  "topology.debug": false,
+  "redis.hostname": "localhost",
+  "rabbit.hostname": "localhost",
+  "rabbit.user": "guest",
+  "rabbit.pass": "guest",
+  "mongo.hostname": "localhost"
+}

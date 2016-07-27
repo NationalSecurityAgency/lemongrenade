@@ -1,0 +1,16 @@
+Default LemonGrenade Ports
+--------------------------
+
+Lemongraph                    8000
+lemongrenade coordinator api  9999
+
+Rabbit                        5672
+Rabbit Admin                  15672
+Mongo                         27017
+Zookeeper                     2181
+
+Apache Storm
+    Nimbus
+    Supervisor
+    UI
+

@@ -1,0 +1,47 @@
+#
+#
+# Lemongrenade Properties File
+#
+#
+#
+adapter_heartbeat=10
+lemongraph_url=http://localhost:8000/
+
+# Dependencies
+rabbit.hostname=localhost
+rabbit.port=5672
+rabbit.adminport=15672
+redis.hostname=localhost
+mongo.hostname=localhost
+
+# Logins
+rabbit.user=guest
+rabbit.password=guest
+rabbit.adminuser=guest
+rabbit.adminpassword=guest
+
+# Performance Tweaking
+rabbit.gatheradminpetrics=false
+rabbit.prefetch.messages=1000
+rabbit.spout.threads=1
+rabbit.sink.threads=1
+coordinator.command.threads=2
+coordinator.threads=5
+adapters.threads=2
+max_adapter_heartbeat_time=300
+# this will make the adapter split large tasks into multiple smaller tasks, <1 = no splitting
+max_nodes_per_task=500
+
+# Database
+database=mongo
+database.mongo.hostname=localhost
+database.mongo.port=27017
+database.mongo.databasename=lemongrenade
+
+# Graph Store
+# valid graph modes are internal,lemongraph
+coordinator.graphstore=lemongraph
+
+# Zookeeper
+zookeeper.hostname=localhost
+zookeeper.port=2181

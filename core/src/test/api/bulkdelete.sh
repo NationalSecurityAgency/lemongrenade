@@ -1,0 +1,1 @@
+curl  -H "Content-Type: application/json"  -X POST  http://localhost:9999/api/jobs/ -d '{'jobs':[ {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"}, {"job_id":"1d8f5542-3c88-11e6-bba7-64006a58e852"}]}'

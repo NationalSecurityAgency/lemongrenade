@@ -1,0 +1,26 @@
+Lemongrenade FAQ
+
+
+1. How to run as a cluster?
+
+2. How do I run in local mode
+
+3. Writing a new adapter
+
+4. Set graph depth
+   There are three ways a depth can be set
+       1) adapter writers can set a depth for their adapter by overriding the getAdapterDepth() function
+       2) job_config   depth=3   is a global setting for all adapters
+       3) job_config   depth.adaptername=5  lets you set a different depth for an (or multiple) adapters
+
+Storm
+
+1. How do I remove all Storm data from Zookeeper
+    /bin/zkCli.sh
+    ls
+    rmr /storm
+
+2. How do I access the storm UI
+    http://localhost:_____
+
+

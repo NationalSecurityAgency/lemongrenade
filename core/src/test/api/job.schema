@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string"
+    },
+    "adapterlist": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "type",
+              "value"
+            ]
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {}
+        }
+      },
+      "required": [
+        "nodes",
+        "edges"
+      ]
+    },
+    "job_config": {
+      "type": "object",
+      "properties": {
+        "depth": {
+          "type": "integer"
+        },
+        "ttl": {
+          "type": "integer"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "depth",
+        "ttl",
+        "description"
+      ]
+    }
+  },
+  "required": [
+    "job_id",
+    "adapterlist",
+    "seed",
+    "job_config"
+  ]
+}

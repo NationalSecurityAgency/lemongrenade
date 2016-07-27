@@ -1,0 +1,60 @@
+{
+  "lemongrenade-topology": {
+    "description": "Default/Basic Topology definition",
+    "number_of_coordinators": 1,
+    "graphapi": "lemongraph",
+    "adapters": [
+      {
+        "class": "lemongrenade.core.coordinator.CoordinatorTopology",
+        "id": "00000000-0000-0000-0000-000000000000",
+        "enabled": true
+      },
+      {
+        "class": "lemongrenade.examples.adapters.ApprovalAdapter",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "enabled": false
+      },
+      {
+        "class": "lemongrenade.examples.adapters.AsyncAdapter",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "enabled": false,
+        "config": {
+          "some_adapter_specific_config_item": "somevalue"
+        }
+      },
+      {
+        "class": "lemongrenade.examples.adapters.CurlAdapter",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "enabled": false
+      },
+      {
+        "class": "lemongrenade.examples.adapters.HelloWorldAdapter",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "enable_metrics": true,
+        "enabled": true,
+        "max_per_job": 100,
+        "logging": "debug"
+      },
+      {
+        "class": "lemongrenade.examples.adapters.HelloWorldNodeAdapter",
+        "id": "00000000-0000-0000-0000-000000000006",
+        "enabled": true
+      },
+      {
+        "class": "lemongrenade.examples.adapters.HelloWorldPython3Adapter",
+        "id": "00000000-0000-0000-0000-000000000007",
+        "enabled": true
+      },
+      {
+        "class": "lemongrenade.examples.adapters.HelloWorldPythonAdapter",
+        "id": "00000000-0000-0000-0000-000000000008",
+        "enabled": true
+      },
+      {
+        "class": "lemongrenade.examples.adapters.PlusBangAdapter",
+        "id": "00000000-0000-0000-0000-000000000009",
+        "enabled": true
+      }
+    ]
+  }
+}
