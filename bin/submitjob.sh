@@ -1,2 +1,6 @@
+#!/bin/bash
+
+LGCOREJAR="${0%/*}/../core/core-latest-jar-with-dependencies.jar"
+
 # TODO: make this take a json file input arg (optional)
-storm jar ../target/lemongrenade-1.0-SNAPSHOT-jar-with-dependencies.jar lemongrenade.SubmitJob
+/opt/storm/bin/storm jar "$LGCOREJAR" lemongrenade.core.SubmitToRabbitMQ "$@"

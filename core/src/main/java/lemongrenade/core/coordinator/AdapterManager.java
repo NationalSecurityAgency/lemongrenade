@@ -1,293 +1,290 @@
 package lemongrenade.core.coordinator;
 
+import lemongrenade.core.database.mongo.LGAdapterDAOImpl;
+import lemongrenade.core.database.mongo.MorphiaService;
+import lemongrenade.core.models.LGAdapterModel;
 import lemongrenade.core.models.LGJob;
-import lemongrenade.core.util.LGConstants;
+import lemongrenade.core.util.JSONUtils;
 import lemongrenade.core.util.LGProperties;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.Jedis;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  *
- * Adapters register to redis when spun up.
+ * AdapterManager doesn't ever make changes to the Mongo Adapter fields. It is read-only.
+ * (with the exception of status information) It's up to the adapter itself to write heartbeat data
+ * to the database and to register itself at startup to the Adapter table(s).
  *
- * lemongrenade.adapters table
- *       UUID:name     -> Maps adapterId to adapterName
- *
- * adaptersdata table
- *      adapter_UUID:requiredkeys  -> required_keys
- *      adapter_UUID:hb            -> last_heartbeat time from adapter
- *      adapter_UUID:starttime     -> timestamp of when adapter came online
- *      adapter_UUID:tc            -> amount of tasks adapter has handled since startup time
- *
- * AdapterManager doesn't ever make changes to the REDIS fields. It is a read-only
- * situation. It's up to the adapter itself to write new data.
- *
- * Contains a snapshot of the lemongrenade.adapters from REDIS. If we think an adapter has
- * gone offline, we can mark it in memory/send log/ or send to another adapter
- * (if running multiple instances of the same adapter type)
- *
- * Adapters don't keep an action count because they are only ever processing one
- * task at a time. Another method would be just look at the size of the rabbitmq
- * for each adapter?
+ * Adapters don't keep an action count (current running tasks) because they are only ever processing one
+ * task at a time. Currently, the only way to see how many jobs are queued for an adapter is to view the
  *
  * Each lemongrenade.core.coordinator can only see the jobs it has given to a adapter. So, a future
- * update should look at the RabbitMQ size + the current action count to get an idea
- * of load_balancing metric.
- *
- * Coordinators decide on their own the status of an Adapter and don't share that information
- * amongst themselves. This keeps the coordinators simple and separate from one another.
- *
+ * update should look at the RabbitMQ size + the current action count to get an idea of a load balancing metric.
+ * Another possibility is to pull information from nimbus (storm) directly. Nimbus looks like it provides a
+ * 'reliability' metric as well. More research is needed on that.
  */
 public class AdapterManager {
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger log = LoggerFactory.getLogger(AdapterManager.class);
     final static int MAX_ADAPTER_HEARTBEAT_TIME = LGProperties.getInteger("max_adapter_heartbeat_time",300);
-    private transient Jedis jedis;
 
-    public AdapterManager() {
-        jedis = new Jedis(LGProperties.get("redis.hostname"));
+    static private MorphiaService MS = null;
+    static private LGAdapterDAOImpl ADAPTER_DAO = null;
+    static private HashMap<String, LGAdapterModel> ADAPTER_CACHE = null;
+
+    static {
+        open();
+    }
+
+    /** */
+    public AdapterManager() {open();}
+
+    public static void open() {
+        if(MS == null) {
+            MS = new MorphiaService();
+            ADAPTER_DAO = new LGAdapterDAOImpl(LGAdapterModel.class, MS.getDatastore());
+            ADAPTER_CACHE = new HashMap<String, LGAdapterModel>();
+        }
+    }
+
+    public static void close() {
+        try {
+            if(MS != null) {
+                MS.close();
+                ADAPTER_DAO = null;
+                ADAPTER_CACHE = null;
+            }
+        }
+        catch(Exception e) {
+            log.error("Error trying to close mongo connection.");
+            e.printStackTrace();
+        }
+    }
+
+    /** *
+     * @param adapter Adapter to save to adapter data access object
+     */
+    public static void addAdapter(LGAdapterModel adapter) {
+        ADAPTER_DAO.save(adapter);
     }
 
     /**
-     * Given the adapter UUID, returns the adapter name from the redis lemongrenade.adapters table
-     *
-     * @param adapterId
+     * @param id Adapter ID to fetch adapter
+     * @return Returns LGAdapterModel for the input adapter ID
+     * */
+    public static LGAdapterModel getAdapterById(String id) {
+        // Look in Cache first
+        if (ADAPTER_CACHE.containsKey(id)) {
+            return (LGAdapterModel) ADAPTER_CACHE.get(id);
+        } else {
+            LGAdapterModel a = ADAPTER_DAO.getById(id);
+            if (a != null) {
+                ADAPTER_CACHE.put(id, a);
+                return a;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param adapter LGAdapterModel to delete from DAO
+     * @return Returns 'true' if successful
+     * */
+    public boolean deleteAdapter(LGAdapterModel adapter) {
+        ADAPTER_DAO.delete(adapter);
+        return true;
+    }
+
+    /**
+     * @return 'true' if delete works
+     * */
+    public static boolean deleteAll() {
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel adapter : adapters) {
+            ADAPTER_DAO.delete(adapter);
+        }
+        return true;
+    }
+
+    /**
+     * Given the adapter UUID, returns the adapter name from the lemongrenade.adapters table
+     * @param adapterId The adapter id to fetch name for
      * @return String adapterName
      */
-    public String getAdapterNameById(String adapterId) {
-        String adapterName = jedis.hget(LGConstants.LGADAPTERS, adapterId);
-        return adapterName;
+    public static String getAdapterNameById(String adapterId) {
+        LGAdapterModel lgAdapter = getAdapterById(adapterId);
+        if (lgAdapter == null) {
+            log.error("Unable to find adapter with ID "+adapterId);
+            return null;
+        }
+        return lgAdapter.getName();
     }
 
-    /** TODO: it would be better to call adapter.getQueueName() */
-    public String getAdapterQueueNameById(String adapterId) {
-        String adapterName = jedis.hget(LGConstants.LGADAPTERS, adapterId);
-        return adapterName+"-"+adapterId;
+    /** TODO: it would be better to call adapter.getQueueName()
+     * @param adapterId The adapter ID to get queue name from
+     * @return String name of adapter
+     * */
+    public static String getAdapterQueueNameById(String adapterId) {
+        LGAdapterModel lgAdapter = getAdapterById(adapterId);
+        return lgAdapter.getUniqueName();
     }
 
-    public HashMap<String,String> getAdapterList() {
-        HashMap <String,String> ret = new HashMap<String,String>();
-        jedis.hkeys(LGConstants.LGADAPTERS).forEach(adapter -> {
-            String name = jedis.hget(LGConstants.LGADAPTERS, adapter);
-            ret.put(adapter,name);
-        });
+    /**
+     * @return Returns a hashmap of UUID to Name
+     * */
+    public static HashMap<String,String> getAdapterList() {
+        HashMap <String,String> ret = new HashMap();
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel adapter : adapters) {
+            ret.put(adapter.getId(), adapter.getName());
+        }
         return ret;
     }
 
-    /** Name-UID mapped to UID/type/hb */
+    /**
+     * @return Returns a List of LGAdapterModel of all in adapter DAO
+     * */
+    public List<LGAdapterModel> getAll() {
+        return ADAPTER_DAO.getAll();
+    }
+
+    /** Name-UID mapped to UID/type/hb
+     * @return Returns JSONObject of names to JSONObjects of adapter models
+     * */
     public JSONObject getAdapterListJson() {
         JSONObject jo = new JSONObject();
-
-        jedis.hkeys(LGConstants.LGADAPTERSDATA).forEach(adapter -> {
-            if (adapter.endsWith(":hb")) {
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                long lastHeartBeat = Long.parseLong(jedis.hget(LGConstants.LGADAPTERSDATA, adapter));
-                long diffTime = (System.currentTimeMillis() - lastHeartBeat)/ 1000;
-                JSONObject d = new JSONObject();
-                d.put("id",adapterId);
-                String name = getAdapterNameById(adapterId);
-                String fullname= name + "-" +adapterId;
-                d.put("name",name);
-                d.put("last_hb",diffTime);
-                d.put("uptime","");
-                d.put("taskcount","0");  // TODO: Pull the right task count
-                d.put("graphquery","");
-                d.put("graphdepth","");
-                jo.put(fullname,d);
-            }
-        });
-
-        // Adapter type
-        jedis.hkeys(LGConstants.LGADAPTERS).forEach(adapter -> {
-            String s[] = adapter.split(":");
-            String adapterId = s[0];
-            String name = getAdapterNameById(adapterId);
-            String fullname = name + "-" + adapterId;
-            JSONObject j = (JSONObject) jo.get(fullname);
-            j.put("type", jedis.hget(LGConstants.LGADAPTERS, adapter));
-        });
-
-        // Starttime, Endtime, TaskCount, graphQuery...
-        jedis.hkeys(LGConstants.LGADAPTERSDATA).forEach(adapter -> {
-            if (adapter.endsWith(":starttime")) {
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                long starttime = Long.parseLong(jedis.hget(LGConstants.LGADAPTERSDATA, adapter));
-                long diffTime = (System.currentTimeMillis() - starttime)/1000;
-                String name = getAdapterNameById(adapterId);
-                String fullname= name + "-" +adapterId;
-                JSONObject d = (JSONObject) jo.get(fullname);
-                d.put("uptime",diffTime);
-            }
-            else if (adapter.endsWith(":tc")) {
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                String taskCount = jedis.hget(LGConstants.LGADAPTERSDATA, adapter);
-                String name = getAdapterNameById(adapterId);
-                String fullname= name+"-" + adapterId;
-                JSONObject d = (JSONObject) jo.get(fullname);
-                d.put("taskcount",taskCount);
-            }
-            else if (adapter.endsWith(":graphquery")) {
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                String graphQuery = jedis.hget(LGConstants.LGADAPTERSDATA, adapter);
-                String name = getAdapterNameById(adapterId);
-                String fullname= name + "-" + adapterId;
-                JSONObject d = (JSONObject) jo.get(fullname);
-                d.put("graphquery",graphQuery);
-            }
-            else if (adapter.endsWith(":graphdepth")) {
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                String graphDepth = jedis.hget(LGConstants.LGADAPTERSDATA, adapter);
-                String name = getAdapterNameById(adapterId);
-                String fullname= name + "-" + adapterId;
-                JSONObject d = (JSONObject) jo.get(fullname);
-                d.put("graphdepth",graphDepth);
-            }
-        });
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel a : adapters) {
+            JSONObject d = a.toJson();
+            jo.put(a.getUniqueName(),d);
+        }
         return jo;
     }
 
     /**
      * helper method to extract adapter list from the job_config JSON blob.
      * Will throw an exception if any of the adapters are invalid.
-     * (TODO: Create an invalidAdapterException
+     * (TODO: Create an invalidAdapterException)
      *
-     * @param jobConfig
-     * @return
+     * @param jobConfig JSONObject of adapter job config
+     * @return Returns an ArrayList of Strings of all approved adapters
+     * @throws Exception when an unknown adapter is in job request.
      */
-    public ArrayList<String> parseAdaptersListFromJobConfig(JSONObject jobConfig)
-            throws Exception
-    {
-        ArrayList<String> approvedAdapters = new ArrayList<>();
+    public static ArrayList<String> parseAdaptersListFromJobConfig(JSONObject jobConfig) throws Exception {
+        return parseAdaptersListFromJobConfig(jobConfig, true);
+    }
+
+    //Parses adapter list from jobConfig. Throws an exception of an adapter isn't known by the system.
+    public static ArrayList<String> parseAdaptersListFromJobConfig(JSONObject jobConfig, boolean toLower) throws Exception {
+        ArrayList<String> approvedAdapters = safeParseAdaptersListFromJobConfig(jobConfig, toLower);
+        String adaptersSystemKnowsAbout = getAdapterListNamesOnlyJson().toString();
+        for (String a : approvedAdapters) {
+            if (!adaptersSystemKnowsAbout.contains("\""+a.toLowerCase()+"\"")) {
+                throw new Exception("Unknown Adapter in job request: "+a);
+            }
+        }
+        return JSONUtils.toArrayList(approvedAdapters); //prevent duplicate entries for the same adapter
+    }
+
+    //Parses adapter list from jobConfig, doesn't throw an exception.
+    public static ArrayList<String> safeParseAdaptersListFromJobConfig(JSONObject jobConfig, boolean toLower) {
+        HashSet<String> approvedAdapters = new HashSet<>();
         if (jobConfig.has("adapters")) {
             JSONObject adapterListObject = jobConfig.getJSONObject("adapters");
             if (adapterListObject.names() != null) {
                 for (int i = 0; i < adapterListObject.names().length(); i++) {
-                    approvedAdapters.add(adapterListObject.names().getString(i).toLowerCase());
+                    if(toLower == true) {
+                        approvedAdapters.add(adapterListObject.names().getString(i).toLowerCase());
+                    }
+                    else {
+                        approvedAdapters.add(adapterListObject.names().getString(i));
+                    }
                 }
             }
         }
-        String adaptersSystemKnowsAbout = getAdapterListNamesOnlyJson().toString();
-        for (String a : approvedAdapters) {
-            if (!adaptersSystemKnowsAbout.contains("\""+a+"\"")) {
-                throw new Exception("Unknown Adapter in job request: "+a);
-            }
-        }
-        return approvedAdapters;
+        return JSONUtils.toArrayList(approvedAdapters); //prevent duplicate entries for the same adapter
     }
 
     /**
-     * This populates Redis with the adapter information. In the past, this was being performed
-     * down at the rabbitmqSpout, which shouldn't have been handling it. Moved here to adapterManager
-     * because we will most likely be getting rid of Redis at some point.
+     * This populates Mongo table with the adapter information.
+     * @param adapterId String of adapter ID
+     * @param adapterName String of adapter name
+     * @param graphQuery graph query
+     * @param graphDepth graph depth
+     * @param requiredKeys HashMap of required keys
+     * @param maxNodesPerTask int for max nodes per task
+     * @param extraParams JSONObject of extra params
      */
-    public void buildAdapterDataStructure(String adapterId, String adapterName
-                ,HashMap<String, String> requiredTuples
-                ,String graphQuery, int graphDepth) {
-        List<String> requiredKeys;
-
-        Set<String> keySet = requiredTuples.keySet();
-        requiredKeys = new ArrayList<String>();
-        requiredKeys.addAll(keySet);
-
-        // Populate ID->Name in lemongrenade.adapters table
-        jedis.hset(LGConstants.LGADAPTERS,adapterId, adapterName);
-
-        // Populate adaptersdata fields
-        String requiredKeysId = adapterId + ":requiredkeys";
-        jedis.hset(LGConstants.LGADAPTERSDATA, requiredKeysId, new JSONArray(requiredKeys).toString());
-
-        // Populate regex values for each key, which is adapterId:key:keyvalue
-        for(int i = 0; i < requiredKeys.size(); i++) {
-            String key = requiredKeys.get(i);
-            String value = requiredTuples.get(key);
-            String newId = adapterId+":requiredkeys:"+key+":keyvalue";
-            jedis.hset(LGConstants.LGADAPTERSDATA, newId, value);
+    public static void buildAdapterDataStructure(String adapterId, String adapterName
+            , String graphQuery, int graphDepth
+            , HashMap<String, String> requiredKeys, int maxNodesPerTask, JSONObject extraParams)
+    {
+        LGAdapterModel a = new LGAdapterModel(adapterId, adapterName, graphQuery, graphDepth, maxNodesPerTask, extraParams);
+        // Only bother with requiredkeys if set
+        if (requiredKeys != null) {
+            a.setRequiredKeys(requiredKeys);
         }
-
-        // Populate adapterQuery
-        String graphQueryKey = adapterId+":graphquery";
-        jedis.hset(LGConstants.LGADAPTERSDATA, graphQueryKey, graphQuery);
-
-        // Populate stats - empty at this stage
-        String statsKey = adapterId+ ":stats";
-        jedis.hset(LGConstants.LGADAPTERSDATA, statsKey, "{}");
-
-        // Populate adapterDepth
-        String graphDepthKey = adapterId+ ":graphdepth";
-        if (jedis.exists(graphDepthKey)) {
-            jedis.hdel(graphDepthKey);
-        }
-        if (graphDepth >= 1) {
-            String graphDepthString = ""+graphDepth;
-            jedis.hset(LGConstants.LGADAPTERSDATA, graphDepthKey, graphDepthString);
-        }
-
-        // Populate heartbeat, startime in adaptersdata
-        String onlineKey = adapterId+ ":starttime";
-        long currentTime = System.currentTimeMillis();
-        jedis.hset(LGConstants.LGADAPTERSDATA, onlineKey, Long.toString(currentTime));
-        String hbKey = adapterId+ ":hb";
-        jedis.hset(LGConstants.LGADAPTERSDATA, hbKey, Long.toString(currentTime));
+        ADAPTER_DAO.save(a);
     }
 
-    /** Helper method that deletes all redis keys for this adapter */
-    private void deleteFromDataStructure(String adapterId ) {
-        // Delete from lemongrenade.adapters table (ID->Name)
-        jedis.hdel(LGConstants.LGADAPTERS, adapterId);
-        // Delete adaptersdata fields
-        // TODO: Scan and delete keys and keys:keyvalues
-       /* String requiredKeysKey = new String(adapterId+":requiredkeys");
-        jedis.hdel(LGConstants.LGADAPTERSDATA,requiredKeysKey);
-        for(int i = 0; i < requiredKeys.size(); i++) {
-            String key = requiredKeys.get(i);
-            String value = requiredTuples.get(key);
-            jedis.hdel(requiredKeysKey, key, value);
-        }
-        */
-        // Delete GraphQuery
-        String graphQueryKey = adapterId+":graphquery";
-        jedis.hdel(LGConstants.LGADAPTERSDATA, graphQueryKey);
-        // Delete heartbeat/starttime
-        String onlineKey = adapterId+ ":starttime";
-        jedis.hdel(LGConstants.LGADAPTERSDATA, onlineKey);
-        String hbKey = adapterId+ ":hb";
-        jedis.hdel(LGConstants.LGADAPTERSDATA, hbKey);
+    /**
+     * @param adapterId Adapter ID to set
+     * @param t long of time of last heart beat
+     * */
+    public static void setHeartBeat(String adapterId, long t) {
+        LGAdapterModel lgAdapter = ADAPTER_DAO.getById(adapterId);
+        lgAdapter.setLastheartBeat(t);
+        ADAPTER_DAO.save(lgAdapter);
     }
 
+    /**
+     * @param adapterId String of adapter ID
+     * @param status int indicating adapter status
+     * */
+    public void setStatus(String adapterId, int status) {
+        LGAdapterModel lgAdapter = ADAPTER_DAO.getById(adapterId);
+        if (status == lgAdapter.getStatus()) { return; }   // Only bother if it changed
+        lgAdapter.setStatus(status);
+        ADAPTER_DAO.save(lgAdapter);
+    }
+
+    /**
+     * @param adapterId String of adapter ID
+     * @param taskId String of task ID to set
+     * */
     public void setCurrentTaskId(String adapterId, String taskId) {
-        String index = adapterId + ":taskid";
-        jedis.hset(LGConstants.LGADAPTERSDATA,index,taskId);
+        LGAdapterModel lgAdapter = ADAPTER_DAO.getById(adapterId);
+        lgAdapter.setCurrentTaskId(taskId);
+        ADAPTER_DAO.save(lgAdapter);
     }
 
+    /**
+     * @param adapterId String of adapter ID to unset
+     */
     public void unsetCurrentTaskId(String adapterId) {
-        String index = adapterId + ":taskid";
-        jedis.hset(LGConstants.LGADAPTERSDATA,index,"");
+        LGAdapterModel lgAdapter = ADAPTER_DAO.getById(adapterId);
+        lgAdapter.setCurrentTaskId("");
+        ADAPTER_DAO.save(lgAdapter);
     }
 
-    public void incrementTaskCount(String adapterId) {
-        String index = adapterId + ":tc";
-        Integer taskCount = 0;
-        try {
-            taskCount = new Integer(jedis.hget(LGConstants.LGADAPTERSDATA, index));
-        }
-        catch (Exception e) {
-            taskCount = 0;
-        }
-        taskCount = taskCount + 1;
-        jedis.hset(LGConstants.LGADAPTERSDATA,index,taskCount.toString());
+    /**
+     * @param adapterId String of adapter ID to increment task count
+     */
+    public static void incrementTaskCount(String adapterId) {
+        LGAdapterModel lgAdapter = ADAPTER_DAO.getById(adapterId);
+        int tc = lgAdapter.getTaskCount();
+        tc++;
+        lgAdapter.setTaskCount(tc);
+        ADAPTER_DAO.save(lgAdapter);
     }
 
     /**
@@ -296,43 +293,39 @@ public class AdapterManager {
      *   OR if HB_FAILED and heartbeat has returned set back to ONLINE
      */
     private void checkAdapterHeartBeat() {
-        jedis.hkeys(LGConstants.LGADAPTERSDATA).forEach(adapter -> {
-            if (adapter.endsWith(":hb")) {
-                // Data is UID:type, here we are looking for UUID:hb
-                String s[] = adapter.split(":");
-                String adapterId = s[0];
-                long lastHeartBeat = Long.parseLong(jedis.hget(LGConstants.LGADAPTERSDATA, adapter));
-                log.info(" Found heartbeat "+lastHeartBeat+" for "+adapterId);
-                long diffTime = System.currentTimeMillis() - lastHeartBeat;
-                if (diffTime > MAX_ADAPTER_HEARTBEAT_TIME) {
-                    log.error("Adapter has gone over max heartbeat time "+diffTime+"/"+MAX_ADAPTER_HEARTBEAT_TIME);
-                    // TODO: update status? what to do here?
-                }
-                // If status is HB_FAILED, see if heartbeat is back
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel adapter : adapters) {
+           long diffTime = System.currentTimeMillis() - adapter.getLastHeartBeat();
+            if (diffTime > MAX_ADAPTER_HEARTBEAT_TIME) {
+                log.error("Adapter has gone over max heartbeat time "+diffTime+"/"+MAX_ADAPTER_HEARTBEAT_TIME);
+                // TODO: update status? what to do here?
+            } else {
+                // TODO f status is HB_FAILED, see if heartbeat is back and then set the status back
             }
-        });
+        }
     }
 
     /**
      * Give an adapter name, such as 'helloworld' , 'plusbang' or whatever other
      * adapter there might be. It looks for a list of all registed lemongrenade.adapters by that name in the
-     * redis "lemongrenade.adapters' table
+     * mongo "lemongrenade.adapters' table
      *
      * After building that list, it then looks at several metrics for each adapter
      * last heartbeat, 'load', and currentTaskCount and returns the "best" available adapter
      * that it can find
-     *
+     * @param  adapterName - the "name" or "type" of the adapter we are looking
      * @return String adapterId
      */
-    public String findBestAdapterByAdapterName(String adapterName) {
-
-        // Loop through the lemongrenade.adapters table, building a list of ALL lemongrenade.adapters IDs that have the name 'adapterName'
+    public static String findBestAdapterByAdapterName(String adapterName) {
+        // Loop through the lemongrenade.adapters table, building a list of ALL
+        // lemongrenade.adapters IDs that have the name 'adapterName'
         ArrayList<String> matchingAdapterList = new ArrayList<String>();
-        Set<String> adapters = jedis.hkeys(LGConstants.LGADAPTERS);
-        for (String adapter : adapters) {
-            String inName = jedis.hget(LGConstants.LGADAPTERS, adapter);
-            if (adapterName.equalsIgnoreCase(inName)) {
-               matchingAdapterList.add(adapter);
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel a : adapters) {
+            if (adapterName.equalsIgnoreCase(a.getName())) {
+                if (a.getStatus() != LGAdapterModel.STATUS_OFFLINE) {
+                    matchingAdapterList.add(a.getId());
+                }
             }
         }
 
@@ -352,37 +345,35 @@ public class AdapterManager {
         return ""; //TODO: Throw exception?
     }
 
-    /** Helper method */
-    private String getAdapterTypeFromAdapterRedisString(String adapter) {
-        String[] s = adapter.split(":");
-        //String adapterType = s[0];
-        return s[0];
-    }
 
+    //  Take the graphquery given by the adapter writer and append depth if we have it.
+    //  Eg.  query = "n(status~/new/)"  and depth =3
+    //       "n(status~/new/),1(depth<=3)"
+    //       else
+    //       "n(status~/new/)"
     /**
-     *  Take the graphquery given by the adapter writer and append depth if we have it.
-     *
-     *  Eg.  query = "n(status~/new/)"  and depth =3
-     *       "n(status~/new/),1(depth<=3)"
-     *       else
-     *       "n(status~/new/)"
+     * @param adapterId String of adapter ID
+     * @param job LGJob
+     * @param applyDepth boolean. 'true' to apply depth
+     * @return Returns graph query
      */
-    public String getGraphQueryForAdapter(String adapterName, String adapterId, LGJob job, boolean applyDepth) {
-        String key = adapterId+":graphquery";
-        String graphQuery = jedis.hget(LGConstants.LGADAPTERSDATA, key);
-        if (graphQuery == null) {
+    public static String getGraphQueryForAdapter(String adapterId, LGJob job, boolean applyDepth) {
+        LGAdapterModel lgAdapter = getAdapterById(adapterId);
+        if (lgAdapter == null) {
+            // TODO: throw exception
+            log.error("Unable to find graphQuery for adapter ["+adapterId+"]");
             return "";
         }
-
-        // Append depth to the query if we have it
-        if (applyDepth) {
-            int depth = findDepth(adapterName, adapterId, job);
-            if (depth >= 1) {
-                String rQuery = graphQuery + ",1(depth<=" + depth + ")";
+        // Append depth to the query if we have it (and if we are told to do so)
+        int graphDepth = lgAdapter.getGraphDepth(); //only apply depth for adapters with positive graph depth
+        if (applyDepth && graphDepth >= 0) {
+            int depth = findDepth(adapterId, job);
+            if (depth >= 0) {
+                String rQuery = lgAdapter.getGraphQuery() + ",1(depth<=" + depth + ")";
                 return rQuery;
             }
         }
-        return graphQuery;
+        return lgAdapter.getGraphQuery();
     }
 
     /**
@@ -402,22 +393,24 @@ public class AdapterManager {
      *          // don't append a depth
      *          no_depth
      *
-     *
-     *
-     * @param adapterName the name of adapter
      * @param adapterId
      * @param job
      * @return
      */
-    private int findDepth(String adapterName, String adapterId, LGJob job) {
+    private static int findDepth(String adapterId, LGJob job) {
+        LGAdapterModel lgAdapter = getAdapterById(adapterId);
         JSONObject config = job.getJobConfigAsJSON();
-        // Check for job_config { adapters : adaptername: { depth = 3 } }
-        if ((config != null) && (config.has("adapters"))) {
-            JSONObject adapters = config.getJSONObject("adapters");
-            if (adapters.has(adapterName)) {
-                JSONObject adapter = adapters.getJSONObject(adapterName);
-                if (adapter.has("depth")) {
-                    return adapter.getInt("depth");
+        if (lgAdapter == null) {
+            log.warn("Unable to find adapter in findDepth for adapterId:"+adapterId);
+        } else {
+            // Check for job_config { adapters : adaptername: { depth = 3 } }
+            if ((config != null) && (config.has("adapters"))) {
+                JSONObject adapters = config.getJSONObject("adapters");
+                if (adapters.has(lgAdapter.getName())) {
+                    JSONObject adapter = adapters.getJSONObject(lgAdapter.getName());
+                    if (adapter.has("depth")) {
+                        return adapter.getInt("depth");
+                    }
                 }
             }
         }
@@ -428,18 +421,13 @@ public class AdapterManager {
         }
 
         // If the adapter writer gave us a depth, we use it
-        String key2 = adapterId+":graphdepth";
-
-        String adapterWriterDepthStr = jedis.hget(LGConstants.LGADAPTERSDATA, key2);
-        if ((adapterWriterDepthStr != null) && (!adapterWriterDepthStr.equals(""))) {
-            try {
-                int d = Integer.parseInt(adapterWriterDepthStr);
-                if (d >= 1) {
-                    return d;
-                }
-            } catch (NumberFormatException e) {
+        if (lgAdapter != null) {
+            int d = lgAdapter.getGraphDepth();
+            if (d >= 1) {
+                return d;
             }
         }
+
         // return a NO_DEPTH values
         return - 1;
     }
@@ -448,42 +436,46 @@ public class AdapterManager {
      * For INTERNAL_MODE usage
      *
      * @param diff JSONObject list of attributes to match for job
-     * @return List of uniqueadapters that match the 'diff' of requiredKeys
+     * @return List of uniqueadapters IDs that match the 'diff' of requiredKeys
      */
-    public List<String> buildUniqueAdapterListBasedOnRequiredKeys (JSONObject diff) {
+    public static List<String> buildUniqueAdapterListBasedOnRequiredKeys(JSONObject diff) {
         List<String> uniqueAdapterList = new ArrayList<>();
-        if (jedis.exists(LGConstants.LGADAPTERSDATA)) {
-            // First Build a list of UNIQUE lemongrenade.adapters to send to. For example, if we are running
-            // multiple instances of the same adapter, we only want that adapter listed once.
-            jedis.hkeys(LGConstants.LGADAPTERSDATA).forEach(adapter -> {
-                // Only look for "requiredkeyss" ignore other redis data keys
-                if (adapter.endsWith(":requiredkeys")) {
-                    JSONArray requiredAttrs = new JSONArray(jedis.hget(LGConstants.LGADAPTERSDATA, adapter));
-                     for (Object attr : requiredAttrs) {
-                        if (diff.has(attr.toString())) {
-                            String newId = adapter+":"+attr+":keyvalue";
-                            Object requiredValue = jedis.hget(LGConstants.LGADAPTERSDATA, newId);
-                            if (requiredValue == null) {
-                                log.error("Unable to find requiredValue for adapter[" + adapter + "] Key[" + attr.toString() + "]");
-                            } else {
-                                String foundValue = diff.getString(attr.toString());
-                                Pattern p = Pattern.compile(requiredValue.toString());
-                                Matcher m = p.matcher(foundValue);
-                                if (m.matches()) {
-                                    String adapterType = getAdapterTypeFromAdapterRedisString(adapter);
+
+        List<LGAdapterModel> adapters = ADAPTER_DAO.getAll();
+        for(LGAdapterModel a : adapters) {
+            if (a.getRequiredKeys() != null) {
+                JSONArray requiredAttrs = new JSONArray(a.getRequiredKeys().keySet());
+                for (Object attr : requiredAttrs) {
+                    if (diff.has(attr.toString())) {
+                        String requiredValue = a.getRequiredKeys().get(attr);
+                        if (requiredValue == null) {
+                            log.error("Unable to find requiredValue for adapter[" +a+ "] Key[" + attr.toString() + "]");
+                        } else {
+                            String foundValue = diff.getString(attr.toString());
+                            Pattern p = Pattern.compile(requiredValue.toString());
+                            Matcher m = p.matcher(foundValue);
+                            if (m.matches()) {
+                                String adapterType =a.getName();
+                                if (!uniqueAdapterList.contains(adapterType)) {
                                     uniqueAdapterList.add(adapterType);
                                 }
                             }
                         }
                     }
                 }
-            });
+            }
         }
-        return uniqueAdapterList;
+
+        // Now look for a suitable adapter ID for each adapter type/name
+        List<String> uniqueAdapterListById = new ArrayList<>();
+        for(String adapterType: uniqueAdapterList) {
+            String adapterId = findBestAdapterByAdapterName(adapterType);
+            uniqueAdapterListById.add(adapterId);
+        }
+        return uniqueAdapterListById;
     }
 
     /**
-     *
      * Returns a clean list of available adapter names available without UUID markup.
      * If there's more than one type of adapter available, the name is only returned once,
      * since the end user does not care about how many adapters are available only what
@@ -495,91 +487,51 @@ public class AdapterManager {
      * This function will return
      *     JSONArray("Adapter1", "Adapter2")
      *
-     * @Returns JSONArray
+     * @return JSONArray
      */
-    public JSONArray getAdapterListNamesOnlyJson() {
+    public static JSONArray getAdapterListNamesOnlyJson() {
         JSONArray ja = new JSONArray();
         HashMap<String,String> list = getAdapterList();
-
-        list.forEach((k,v) -> {
-            if (!ja.toString().contains("\""+v+"\"")) {
+        list.forEach((k, v) -> {
+            if (!ja.toString().contains("\"" + v + "\"")) {
                 ja.put(v.toLowerCase());
             }
         });
         return ja;
     }
 
-    /** move to junit
-     *
-     */
+    /**
+     * @param args Unused. Standard for 'main' function.
+     * */
     public static void main(String[] args) {
-        AdapterManager am = new AdapterManager();
-        // Populate redis with fake info
-        am.jedis.flushAll();  // Clear ALL THE TABLES
-        am.jedis.hset(LGConstants.LGADAPTERS,"001","testadapter1");
-        am.jedis.hset(LGConstants.LGADAPTERS,"002","testadapter2");
-        am.jedis.hset(LGConstants.LGADAPTERS,"003","testadapter2");       // two testadapter2 on purpose
-        String t = new String(""+System.currentTimeMillis());
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"001:hb",t);
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"002:hb",t);
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"003:hb","0001");
-        ArrayList req= new ArrayList<String>(); req.add("hello");
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"001:requiredkeys",new JSONArray(req).toString());
-        String newId = "001"+":requiredkeys:"+"hello"+":keyvalue";
-        am.jedis.hset(LGConstants.LGADAPTERSDATA, newId, ".*");
-        ArrayList req2= new ArrayList<String>(); req2.add("status"); req2.add("someother");
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"002:requiredkeys",new JSONArray(req2).toString());
-        String newId2 = "002"+":requiredkeys:"+"status"+":keyvalue";
-        am.jedis.hset(LGConstants.LGADAPTERSDATA, newId2, ".*");
-        String newId3 = "002"+":requiredkeys:"+"someother"+":keyvalue";
-        am.jedis.hset(LGConstants.LGADAPTERSDATA, newId3, ".*");
-        am.jedis.hset(LGConstants.LGADAPTERSDATA,"003:requiredkeys",new JSONArray(req2).toString());
-        String newId4 = "003"+":requiredkeys:"+"status"+":keyvalue";
-        am.jedis.hset(LGConstants.LGADAPTERSDATA, newId4, ".*");
-        String newId5 = "003"+":requiredkeys:"+"someother"+":keyvalue";
-        am.jedis.hset(LGConstants.LGADAPTERSDATA, newId5, ".*");
+        /** See JUNIT for more information */
 
-        // call findBestAdapterByAdapterName()
-        String id = am.findBestAdapterByAdapterName("testadapter1");
-        // assert
-        System.out.println("1: Found "+id);
-        if (id.equals("001")) {
-            System.out.println("Found right adapter for testadapter1");
-        } else {
-            System.out.println("FAIL: looking for testadapter1");
-        }
-        String id2= am.findBestAdapterByAdapterName("testadapter2");
-        System.out.println("2: Found "+id2);
-        if (id2.equals("002")) {
-            System.out.println("Found right adapter for testadapter2");
-        } else {
-            System.out.println("FAIL: looking for testadapater2");
-        }
+        AdapterManager.deleteAll();
 
+        ArrayList req2= new ArrayList<String>();
+        req2.add(new JSONObject().put("status",".*"));
+        req2.add(new JSONObject().put("someother",".*"));
+        LGAdapterModel a1 = new LGAdapterModel("001","testadapter","query1",1,0, new JSONObject());
+        HashMap<String, String> requiredKeys = new HashMap<String, String>();
+        requiredKeys.put("hello", ".*");
+        requiredKeys.put("hello2", ".*");
+        a1.setRequiredKeys(requiredKeys);
+        AdapterManager.addAdapter(a1);
+
+        LGAdapterModel a2 = new LGAdapterModel("002","testadapter","query1",2,0, new JSONObject());
+        a2.setRequiredKeys(requiredKeys);
+        AdapterManager.addAdapter(a2);
+
+
+        LGAdapterModel a3 = new LGAdapterModel("003","testadapter3","query3",3,0, new JSONObject());
+        AdapterManager.addAdapter(a3);
+
+        // Test required keys
         JSONObject diff = new JSONObject("{\"type\":\"id\",\"value\":\"e2ec2796-8d5f-404d-83dd-f839b8d3874c\",\"hello\":\"world\"}");
-        List adapterList= am.buildUniqueAdapterListBasedOnRequiredKeys(diff);
-        System.out.println("Reqturned list :"+adapterList.toString());
-        if (adapterList.get(0).equals("001")) {
-            System.out.println("Success finding adapter for hello:world");
+        List adapterList= AdapterManager.buildUniqueAdapterListBasedOnRequiredKeys(diff);
+        System.out.println(adapterList.toString());
 
-        } else {
-            System.out.println("FAIL: finding correct adapter list for hello:world");
-        }
-        System.out.println(" Unique list returns "+adapterList.toString());
-
-        JSONObject diff2 = new JSONObject("{\"type\":\"id\",\"value\":\"e2ec2796-8d5f-404d-83dd-f839b8d3874c\",\"status\":\"new\"}");
-        List adapterList2= am.buildUniqueAdapterListBasedOnRequiredKeys(diff2);
-        System.out.println(adapterList2.toString());
-        if (adapterList2.contains("002") && adapterList2.contains("003") && (!adapterList2.contains("001"))) {
-            System.out.println("Success finding adapter for status:new");
-
-        } else {
-            System.out.println("FAIL: finding correct adapter list for status:new");
-        }
-        System.out.println(" Unique list returns "+adapterList2.toString());
-
-        System.out.println(am.getAdapterListNamesOnlyJson());
-
-        am.jedis.flushAll();  // Clear ALL THE TABLES
+        AdapterManager.deleteAll();
+        AdapterManager.close();
     }
 }                                                                                                                      ;

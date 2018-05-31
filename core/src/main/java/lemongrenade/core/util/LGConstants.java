@@ -14,7 +14,7 @@ public class LGConstants {
 
     public final static String LG_INTERNAL_OP   = "lg_internal_op";
     public final static String LG_INTERNAL_DATA = "lg_internal_data";
-    public final static String LG_INTERNAL_OP_EXECUTE_ON_ADAPTERS = "execute_on_adapters";
+    public final static String LG_INTERNAL_OP_EXECUTE_ON_ADAPTERS = "postaction";
 
 
 
@@ -27,6 +27,7 @@ public class LGConstants {
     public final static String LG_PAYLOAD_TYPE_ADAPTERRESPONSE_FAILURE = "adapter-failed";
 
     public final static String LG_RESET_REASON = "reason";
+    public final static String LG_RESET_OVERWRITE = "overwrite";
 
 
 }

@@ -1,5 +1,6 @@
 package lemongrenade.core.database.lemongraph;
 
+import lemongrenade.core.database.lemongraph.LemonGraph;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.After;
@@ -9,14 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
- * Perform tests that don't need the LEMONGRAPH server to be acutally running
+ * Perform tests that don't need the LEMONGRAPH server to be actually running
  */
 public class LemonGraphOfflineTest {
     private final Logger log = LoggerFactory.getLogger(getClass());

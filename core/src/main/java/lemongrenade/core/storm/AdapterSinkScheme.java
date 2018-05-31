@@ -15,6 +15,13 @@ public class AdapterSinkScheme extends TupleToMessage {
 
     @Override
     protected String determineExchangeName(Tuple tuple) {
-        return tuple.getStringByField("destination");
+        String exchangeName = tuple.getStringByField("destination");
+        return exchangeName;
+    }
+
+    @Override
+    protected String determineRoutingKey(Tuple tuple) {
+        String routingKey = tuple.getStringByField("destination");
+        return routingKey;
     }
 }

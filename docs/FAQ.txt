@@ -1,12 +1,49 @@
 Lemongrenade FAQ
+-----------------
+
+* How to run as a cluster?
+  See dev/lauch_topologies.sh
+
+* How do I run in local mode
+  You can run in local mode without STORm for development and testing purposes.
+  TODO:
+
+* Where is the Lemongrenade UI
+    http://localhost:9999/
+    or
+    /opt/lemongrenade/bin/lgtop.py
+
+* Where is the Lemongrenade UI
+    http://localhost:9999/
+    or
+    /opt/lemongrenade/bin/lgtop.py
+
+* Do I need LEMONGRAPH?
+   You can use INTERNAL processing mode, but it's really not recommended. (see props.conf file)
+   LEMONGRAPH gives you all the magic,
+
+* How do I start LEMONGRAPH?
+  python -m LemonGraph.server -p 8001
+
+* What is FINISHED_WITH_ERRORS?
+  FINISHED_WITH_ERRORS means during graph processing, an adapter couldn't be reached or timeout. This mostly occurs
+  because whatever upstream service your adapter is trying to contact was busy and just rejected your job. We are
+  working to improve this process so that we can better detect TIMEOUTs VS. real Errros, but for now, we consider both
+  to be errors. However, the reliability of storm will keep trying to process your job, and you will get data coming
+  in to your graph even after FINISHED_WITH_ERRORs state has occurred. (Part of the process we will be improving in
+  future release.)
+
+* Why am I getting "Lemongraph doesn't know about graph" errors?
+    1. Is lemongraph running, is it out of disk space, is there a permission problems?
+    2. Do you have multiple lemongraphs running?
+    3. Seriously, make sure you don't have muliple instances of LemonGraph running
 
 
-1. How to run as a cluster?
-
-2. How do I run in local mode
-
-3. Writing a new adapter
-
+Writing a new adapter
+---------------------
+1.
+2.
+3.
 4. Set graph depth
    There are three ways a depth can be set
        1) adapter writers can set a depth for their adapter by overriding the getAdapterDepth() function
@@ -14,13 +51,30 @@ Lemongrenade FAQ
        3) job_config   depth.adaptername=5  lets you set a different depth for an (or multiple) adapters
 
 Storm
-
-1. How do I remove all Storm data from Zookeeper
+------
+1. How do I remove all Storm data from Zookeeper  (Useful is you need to upgrade Storm)
     /bin/zkCli.sh
     ls
     rmr /storm
 
 2. How do I access the storm UI
-    http://localhost:_____
+    http://localhost:8080
+
+3.
 
 
+Mongo
+-------
+*. How many ports does mongo have open?
+   netstat -anp --tcp --udp | wc -l
+
+   or from mongo commandline:
+    db.serverStatus().connections
+
+*. Why is mongo running out of ports at ~820?
+    It seems there might be a startup bug with Mongo. it only allows 80% of ulimit. (80% of 1024 is 819.20)
+    And even though we had our ulimit set much higher than 1024, it seems like it ignored it, to get around
+    this, we started Mongo wth :
+        /usr/bin/mongod --maxConns 10000
+
+    You could probably go to 13000, but who is counting?

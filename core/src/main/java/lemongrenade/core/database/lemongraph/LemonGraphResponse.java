@@ -52,8 +52,8 @@ public class LemonGraphResponse {
     }
 
     /**
-     * Call this with res.getHeaders();
-     * @param headers
+     * * Call this with res.getHeaders();
+     * @param headers HttpFields of headers
      */
     public void parseHeadersAndSetVariables(HttpFields headers) {
         for (HttpField h : headers) {
@@ -69,7 +69,10 @@ public class LemonGraphResponse {
         }
     }
 
-    /** Parse out information from LemonGraph response */
+    /**
+     * Parse out information from LemonGraph response
+     * @param res ContentResponse
+     */
     public void parseContentResponse(ContentResponse res) {
         JSONObject ret = new JSONObject();
         try {

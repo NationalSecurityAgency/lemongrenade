@@ -1,0 +1,73 @@
+<div ng-show="loading || isDataEmpty()" >
+  <div class="jumbotron">
+     <h1>Loading ...</h1>
+  </div>
+</div>
+<!--{{job | json }}-->
+<a href="/#/jobs"><button class="btn btn-primary"><i class="glyphicon glyphicon-arrow-left"></i> Return To Jobs Page</button></a>
+<br/>
+ <div class="row">
+  <div class="panel panel-default">
+    <div class="panel panel-body">
+    <table class="">
+      <tbody>
+          <tr><td class="col-xs-4">ID : {{jobid}}</td></tr>
+          <tr><td class="col-xs-2">Status: {{job.status}}</td></tr>
+          <tr><td class="col-xs-2">User: {{user}}</td></tr>
+          <tr><td class="col-xs-1">Graph: {{job.graph_activity}}</td></tr>
+          <tr><td class="col-xs-4">Tasks: {{job.active_task_count}}/{{job.task_count}}</td></tr>
+	  <tr><td><a href="/#/jobmetrics/{{jobid}}">Metrics</a></td></tr>
+      </tbody>
+    </div>
+  </div>
+ </div>
+
+<div ng-show="!loading ">
+<div class="row">
+  <div class="panel panel-default">
+    <div class="pull-right"></div>
+    <table class="table table-condensed">
+      <thead>
+	<tr>
+          <th>Task ID</th>
+          <th>Parent</th>
+          <th>Adapter</th>
+          <th>Status</th>
+          <th>CreateDate</th>
+          <th>&nbsp;</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-if="tasks.length == 0">
+          <td class="danger" colspan="4">No Tasks</td>
+        </tr>
+	<tr ng-repeat="task in tasks">
+          <td>{{task.task_id}}</td>
+          <td>{{task.parent_task_id}}</td>
+          <td>{{task.adapter_name}}</td>
+	  <td>
+	    <span ng-if="task.status == 'failed'"      class="label label-danger">FAILED</span>
+	    <span ng-if="task.status == 'processing'" class="label label-info">PROCESSING</span>
+	    <span ng-if="task.status == 'replayed'" class="label label-warning">RETRIED</span>
+        <span ng-if="task.status == 'complete'"  class="label label-success">COMPLETE</span>
+        <span ng-if="task.status == 'dropped'"  class="label label-warning">DROPPED</span>
+      </td>
+          <td>{{task.start_time}}</td>
+          <td><button ng-if="task.status == 'failed'" class="btn btn-xs btn-danger" ng-click="toggleRetryJobByTaskModal(jobid,task.task_id)"> Retry</button></td>
+    </tr>
+      </tbody>
+    </table>
+ </div>
+</div>
+
+<!--RETRY JOB MODAL --->
+<modal title="Retry Failed Task" visible="showRetryJobByTaskModal">
+<P>Are you sure you want to retry job: {{showRetryJobModalId}} task: {{showRetryJobModalTaskId}}</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button type="button"  ng-click="$parent.retryJobByTaskId(showRetryJobModalId,showRetryJobModalTaskId)" class="btn btn-danger btn-default pull-right" data-dismiss="modal" aria-hidden="true">Yes, Retry Failed Tasks!</button>
+<br/>
+</modal>
+
+
+

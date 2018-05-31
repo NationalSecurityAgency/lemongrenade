@@ -4,13 +4,11 @@ import junit.framework.TestCase;
 
 import lemongrenade.core.models.LGPayload;
 import org.json.JSONObject;
-import org.json.JSONArray;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class SubmitJobTest extends TestCase {
 
@@ -18,7 +16,7 @@ public class SubmitJobTest extends TestCase {
 
     @Test
     public void testSubmitJobTestBuild() {
-        SubmitJob sj = new SubmitJob();
+        SubmitToRabbitMQ sj = new SubmitToRabbitMQ();
         ArrayList<String> alist = new ArrayList();
         alist.add("adapter1"); alist.add("adapter2"); alist.add("adapter3");
 

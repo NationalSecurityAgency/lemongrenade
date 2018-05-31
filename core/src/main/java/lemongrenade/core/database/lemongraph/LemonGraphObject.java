@@ -8,7 +8,7 @@ import org.json.JSONObject;
  * {
  *     "seed": true,  // mark any referenced nodes/edges as seeds
  *     "meta": {},    // same structure as POST /graph, merges graph-level kv pairs
- *     'chains': [],  // list of node[->edge->node]* object chains
+ *     'chains': [],  // list of node[to edge to node]* object chains
  *     'nodes': [],   // list of nodes
  *     'edges': [],   // list of edges
  * }
@@ -48,7 +48,14 @@ public class LemonGraphObject {
         this.edges  = edges;
     }
 
-    /** Constructor that takes in chains */
+    /**
+     * Constructor that takes in chains
+     * @param isSeed boolean. 'true' for a seed
+     * @param meta JSONObject of meta data items
+     * @param nodes JSONArray of JSONObject nodes
+     * @param edges JSONArray of JSONArray triplets of JSONObjects
+     * @param chains JSONArray
+     */
     public LemonGraphObject(boolean isSeed, JSONObject meta, JSONArray nodes, JSONArray edges, JSONArray chains) {
         this.isSeed = isSeed;
         this.meta   = meta;

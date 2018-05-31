@@ -1,3 +1,8 @@
+/* -------------------------------------------------------------------------------------------------------- */
+   LEMONGRAPH Passthrough
+/* -------------------------------------------------------------------------------------------------------- */
+  /lemongraph/
+      Passes requests to underlying LEMONGRAPH instance. e.g. localhost:9999/lemongraph/graph returns results of localhost:8001/graph
 
 /* -------------------------------------------------------------------------------------------------------- */
    System level calls
@@ -17,9 +22,9 @@
         Returns all jobs and their information from database. This can be an expensive job to run if there's
         hundreds of thousands of jobs in the database.
         Sample :
-        { "f30176c4-2e4b-11e6-ac3c-64006a58e852": {
+        { "f30176c4-2e4b-11e6-ac3c-000000000000": {
                 "job_config":{"depth":"6"},
-                "job_id":"f30176c4-2e4b-11e6-ac3c-64006a58e852",
+                "job_id":"f30176c4-2e4b-11e6-ac3c-000000000000",
                 "endtime":1465481441924,
                 "approvedadapters":["helloworld","plusbang"],
                 "starttime":1465481441582,
@@ -29,18 +34,61 @@
                 "task_count":0}
         }
 
+
+        Also allows date range parameters
+                 created_before - "Includes the day listed", example: "2016-08-08T18:04:23.514Z"
+                 created_after  - "Includes the day listed", example: "2016-08-07T18:04:23.514Z"
+            ?created_before=2016-08-08T18:04:23.514Z&created_after=2016-08-09T18:04:23.514Z
+               gives all jobs including and between those two ranges
+            ?created_before=2016-08-08T18:04:23.514Z
+               gives all jobs from that date and backward
+            ?created_after=2016-08-08T18:04:23.514Z
+               ives all jobs from that date and onward
+
+
+/api/jobs/all
+     GET - (Accept: application/json)
+              BULK jobs data
+              Returns:
+                {<job_id> : {maxID: Integer, size: Int, created: String, config: JSONObject, errors: JSONArray, status: String}, ...}
+
+/api/jobs
+     POST - (Accept: application/json)
+              BULK jobs data
+              Returns:
+                {<job_id> : {maxID: Integer, nodes: JSONArray, size: Int, created: String, edges: JSONArray, config: JSONObject, errors: JSONArray, status: String}, ...}
+
+
+/api/jobs/{job_id}
+     GET - (Accept: application/json)
+              Single jobs data.
+            Returns:
+              {<job_id> : {maxID: Integer, nodes: JSONArray, size: Int, created: String, edges: JSONArray, config: JSONObject, errors: JSONArray, status: String}}
+
+/api/jobs/delete
      POST - (Accept: application/json)
               BULK Delete
               Send:
-                  {'jobs':[ {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"}, {"job_id":"job2"}]}
+                  ["99dbdcbe-ff2d-4c94-b267-381ec7de4928", "99dbdcbe-ff2d-4c94-b267-381ec7de4928"]
               Returns:
-                  {[ {"job_id":"0000", 'deleted':true, 'error':'if needed'}, ....]}
+                  {[ {"job_id":"0000", 'deleted':true, 'error':'if needed'}, ....]}.
 
 
 /api/jobs/last/{count}
     GET - (Accept: application/json)
     This will get the last {count} jobs based on createdate
 
+
+DEPRECATED Will be removed in future release, use /jobs/days/X/0 instead.
+/api/jobs/days/olderthan/{days}
+    GET - (Accept: application/json)
+    Returns all jobs older than {days}
+
+
+Gets you values from a certain day to a certain date. If you set to_days to 0, it will get all days older than from_days.
+     *
+     * For example,    /jobs/days/30/0  Will get you all jobs older than 30 days
+     *                 /jobs/days/30/60 Will get you all jobs between 30 and 60 days old
 
 /api/jobs/days/{days_ago}
     GET - (Accept: application/json)
@@ -73,6 +121,12 @@
            { "jobs": [ { 'job_id': 'id1' } ... ]
         Only those job_ids are returned :
          {{  'job_id': { reason, status }}
+     POST - Accept: application/json
+         Expects an JSONArray of job_ids:
+            ['1', '2', '3']
+         Returns:
+            [{maxID: Int, size: Int, config: JSONObject, errors: JSONArray, status: String}]
+
 
 /api/jobs/status/{status}
     GET - (Accept: application/json)
@@ -85,6 +139,10 @@
 
         Valid Status values are "NEW", PROCESSING", "FINISHED", "QUEUED", "STOPPED","EXPIRED", "RESET", "ERROR",
         See the description for the /api/jobs call for more information
+
+     POST - Accept: application/json
+         Returns:
+            {maxID: Int, size: Int, config: JSONObject, errors: JSONArray, status: String}
 
 
 /api/jobs/status/{status}/reason/{reason}
@@ -102,7 +160,7 @@
     PUT - (Accept: application/json)
          BULK Cancel a job if it's currently processing.
          Send:
-             {'jobs':[ {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"}, {"job_id":"job2"}]}'
+             [ "99dbdcbe-ff2d-4c94-b267-381ec7de4928", "2", "3"]
          Returns:
              {[ {"job_id":"0000", 'cancelled':true, 'error':'if needed'}, ....]}
 
@@ -119,15 +177,24 @@
              Or, you can set a per-job reason. And if there's no per-job, the global one is used
 
               Send:
-                  { 'reason': 'SOME_GLOBAL_REASON'
-                    'jobs':[
-                            {"job_id":"99dbdcbe-ff2d-4c94-b267-381ec7de4928"},
-                            {"job_id":"89dbdcbe-ff2d-4c94-b267-381ec7de4928", 'reason':"SOME_OTHER_REASON" }
-                            ]
+                  { "reason": "SOME_GLOBAL_REASON",
+                    "jobs":{
+                            "99dbdcbe-ff2d-4c94-b267-381ec7de4928": {} ,
+                            "89dbdcbe-ff2d-4c94-b267-381ec7de4928": {
+                                       'reason':"SOME_OTHER_REASON"
+                            }
+                     }
                   }
               Returns:
-                  {[ {"job_id":"0000", 'reset':true, 'error':'if needed'}, ....]}
-
+                  {
+                      "job_id" :{  'reset':true, 'error':'if needed'}, ...
+                  }
+       POST - (Accept: application/json)
+             Sends a reset command to the Coordinator. Takes a JSONArray of job_ids
+              Send:
+                ["99dbdcbe-ff2d-4c94-b267-381ec7de4928","89dbdcbe-ff2d-4c94-b267-381ec7de4928"]
+              Returns:
+                  {"job_id" :{  'reset':true, 'error':'if needed'}, ...}
 
 
 
@@ -138,9 +205,9 @@
 /api/job/<job_id>
     GET - (Accept: application/json)
         Returns listing of requested job data
-        { "f30176c4-2e4b-11e6-ac3c-64006a58e852": {
+        { "f30176c4-2e4b-11e6-ac3c-000000000000": {
                         "job_config":{"depth":"6"},
-                        "job_id":"f30176c4-2e4b-11e6-ac3c-64006a58e852",
+                        "job_id":"f30176c4-2e4b-11e6-ac3c-000000000000",
                         "endtime":1465481441924,
                         "approvedadapters":["helloworld","plusbang"],
                         "starttime":1465481441582,
@@ -153,7 +220,7 @@
     DELETE - (Accept: application/json)
         Deletes the given job id
         Returns:
-          {"deleted":true,"job_id":"fbd3d4c4-3259-11e6-8da2-64006a58e852","status":200}
+          {"deleted":true,"job_id":"fbd3d4c4-3259-11e6-8da2-000000000000","status":200}
           --OR--
           {"deleted":false,"job_id":"4bdbdcbe-ff2d-4c94-b267-381ec7de4928",
             "error":"Job with the id 4bdbdcbe-ff2d-4c94-b267-381ec7de4928 is not present in the database",
@@ -204,12 +271,12 @@
      }
 
      Returns:
-     {"job_id":"be0c3944-2cda-11e6-86f1-64006a58e852","status":"added"}
+     {"job_id":"be0c3944-2cda-11e6-86f1-000000000000","status":"added"}
 
 
 /api/job
     POST - (Accept: application/json)
-        Creates a new job based off body data and returns the newly created job_id
+        Creates a new job based off body data and returns the newly created job.
         job_config: depth defaults to 3,
            TTL defaults to 0 (run forever). TTL only refers to the 'allowed running time' For example, if you
             set TTL to 300 (5 minutes, and the job runs past 5 minutes, Lemongrenade will stop the job. The job
@@ -243,21 +310,45 @@
           }
 
         Returns:
-           {"job_id":"1159c020-3259-11e6-9a54-64006a58e852","status":"created"}
+           {"1159c020-3259-11e6-9a54-000000000000": JSONObject job}
 
 
-/api/job/{job_id}/execute_adapters_on_nodes
+/api/job/{job_id}/postaction
    POST - (Accept: application/json)
       This function allows you to run a specific adapter or adapters on a specific list of nodes in a graph.
-      You must pass the node list as an JSONArray of node ID's as nodes. Only ID values are accepted.
-      The idea of the different adapter list (called 'onetimeadapterlist') is that it creates a unique and easy
-      to identify list that wont be confused with the existing adapter list that is stored in the job_config
-        {
-            "onetimeadapterlist":["plusbang"],
-             "nodes":["2","3","4"],
-        }
+      You must pass the node list as an JSONArray of node ID's as nodes. Only NODE ID values are accepted.
+
+      Only the adapters listed in "job_config" is ran on the nodes in post_action:nodes list. Any
+      data that is generated via this post action command is pumped back into the graph. Then all the job's old
+      adapters and old job configuration are ran against the new data.
+
+      Post action (along with the post_action_job_config is stored in the job under job.post_actions AND in the
+      job history. The job will go from FINISHED-->PROCESSING while this tasks and any new child tasks are executed.
+      Once all tasks are complete and there's no new tasks, the job returns to FINISHED.
+
+      You can only run POST_ACTIONS on FINISHED or FINISHED_WITH_ERROR jobs. You can run multiple POST_ACTIONS but
+      you must run them one at a time and wait for the job status to return to FINISHED or FINISHED_WITH_ERRORs before
+      sending a new POST ACTION.
+
+      Only required information is post_action_job_config, nodes, and adapters
+
+      {
+        "post_action_job_config": {
+             "nodes": ["2","3","4"],
+             "depth": 4,
+             "description": "job description",
+             "adapters": {
+                    "PlusBang": {}
+             }
+         }
+      }
+
       Returns:
-         {"job_id":"f42c2bf0-3244-11e6-9a54-64006a58e852","status":"submitted"}
+         200 {"job_id":"f42c2bf0-3244-11e6-9a54-000000000000","message":"Postaction submitted"}
+         201 {"job_id":"f42c2bf0-3244-11e6-9a54-000000000000","message":"Postaction failed"}
+
+
+
 
 /api/job/{job_id}/status
     GET -(Accept: application/json)
@@ -290,7 +381,7 @@
          {
           "start_time": "Jul 07,2016 07:46:19",
           "adapter_name": "HelloWorld",
-          "job_id": "6b74e526-4438-11e6-8f70-64006a58e852",
+          "job_id": "6b74e526-4438-11e6-8f70-000000000000",
           "end_time": "Jul 07,2016 07:46:19",
           "task_id": "e99fe4ac-91f9-422f-9a23-3d0edc12cbfc",
           "adapter_id": "00000000-0000-0000-0000-000000000005",
@@ -299,7 +390,7 @@
          {
           "start_time": "Jul 07,2016 07:46:19",
           "adapter_name": "PlusBang",
-          "job_id": "6b74e526-4438-11e6-8f70-64006a58e852",
+          "job_id": "6b74e526-4438-11e6-8f70-000000000000",
           "end_time": "Jul 07,2016 07:46:20",
           "task_id": "ff1516f2-7aa2-4615-b44c-8210dad897ae",
           "adapter_id": "00000000-0000-0000-0000-000000000009",
@@ -333,14 +424,18 @@
                  This will be saved in the job and can be queried on later. For example:
                  /api/jobs/status/RESET/reason/WHATEVER_REASON
 
-
+             Returns:
+                 {
+                     "jobid" : { "reset": true, "status": 200 }
+                 }
 
 
 /* -------------------------------------------------------------------------------------------------------- */
    Adapter Level Calls
 /* -------------------------------------------------------------------------------------------------------- */
 
-/api/adapter/names
+Note: /api/adapter/name is DEPRECATED but continues to work same as new /api/adapters/name
+/api/adapters/names
     GET -
         Returns a clean list of available adapter names available without UUID markup.
         If there's more than one type of adapter available, the name is only returned once,
@@ -353,7 +448,8 @@
           This function will return:
             {["Adapter1", "Adapter2"]}
 
-/api/adapter/
+Note: /api/adapter is DEPRECATED but continues to work same as new /api/adapters
+/api/adapters/
     GET -
         Returns the adapter list. Note: If RabbitMQ is set to SSL on the admin interface (port 15672), you will
         not get the "queue" information in the returning JSON.
@@ -362,8 +458,10 @@
            "HelloWorldPython-00000000-0000-0000-0000-000000000008": {
               "last_hb": 6,
               "graphquery": "n(status~/.*/i,type~/.*/i,value~/.*/i,status!:number)",
-              "taskcount": "0",
+              "status": "UP"
+              "task_count": "0",
               "name": "HelloWorldPython",
+              "type": "HelloWorldPython",
               "id": "00000000-0000-0000-0000-000000000008",
               "type": "HelloWorldPython",
               "queue": [
@@ -382,3 +480,26 @@
 /api/adapter/<uuid>
     GET -
         Returns info about specific adapter
+
+    DELETE -
+        Deletes specific adapter. Warning do not delete a "ONLINE" adapter without first shutting down
+        its topology.  An OFFLINE adapter can be deleted at any time.
+
+
+/api/adapterBaseURL/{adapterName}
+    GET -
+        returns the base URL for the entered "adapterName"
+
+    PUT -
+         sets the base URL for "adapterName"; the URL string is passed in as a "body" parameter
+
+/api/adapterBaseURL/allBaseURLs
+    GET -
+        returns JSON string of all adapter:BaseURL key value pairs
+
+/api/adapterBaseURL/saveMultipleBaseURLs
+    PUT
+        sets the base URL for multiple adapters; A JSON string of adapterName:URL key/value pairs is passed in as a "body" parameter
+
+**** To ease deployment to a new system, I created a file called adapter_Base_Urls.txt.  The file contains A JSON string of the currently
+used adapterName:URL key/value pairs.  Using the saveMultipleBaseURLs endpoint, you can do an initial load of the base URLs.

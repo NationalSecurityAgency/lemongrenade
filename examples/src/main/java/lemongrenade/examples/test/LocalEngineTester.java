@@ -1,15 +1,17 @@
 package lemongrenade.examples.test;
+
+import lemongrenade.core.templates.LGAdapter;
+import lemongrenade.core.util.LGProperties;
 import org.apache.storm.ILocalCluster;
 import org.apache.storm.Testing;
 import org.apache.storm.testing.MkClusterParam;
-import org.apache.storm.utils.Utils;
 import org.apache.storm.testing.TestJob;
-import lemongrenade.core.templates.LGAdapter;
+import org.apache.storm.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.Jedis;
+
 import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -56,9 +58,6 @@ public class LocalEngineTester {
      */
     public static void startAllAdapters(JSONArray adapters) {
         System.out.println("Starting Adapters defined in topology configuration file.");
-        // Get hostname from props file
-        Jedis jedis = new Jedis("localhost");
-        jedis.flushAll();
 
         // ---------------------------------------------------------
         MkClusterParam mkClusterParam = new MkClusterParam();
@@ -133,8 +132,6 @@ public class LocalEngineTester {
     private static String readFile(String filename) throws Exception {
         String result = "";
         try {
-            System.out.println(filename);
-
             System.out.println("Looking for "+filename+" in "+System.getProperty("user.dir"));
             BufferedReader br = new BufferedReader(new FileReader(filename));
             StringBuilder sb = new StringBuilder();
@@ -175,27 +172,22 @@ public class LocalEngineTester {
     private static JSONObject parseTopologyFile(String filename) {
         System.out.println("Parsing topology file :"+filename);
         JSONObject jsonObject = new JSONObject();
-        if(checkResource(filename)) {
-            try {
-                InputStream file_stream = ClassLoader.getSystemResourceAsStream(filename);
-                System.out.println(file_stream.toString());
-                String jsonData = readFile(file_stream);
-                jsonObject = new JSONObject(jsonData);
-            } catch (Exception ex) {
-                System.out.println("Error trying to find file :" + filename);
-                ex.printStackTrace();
-                System.exit(-1);
-            }
-        }
-        else {
-            try {
-
-                String jsonData = readFile(filename);
-                jsonObject = new JSONObject(jsonData);
-            } catch (Exception ex) {
-                System.out.println("Error trying to find file :" + filename);
-                ex.printStackTrace();
-                System.exit(-1);
+        InputStream file_stream = null;
+        try {
+            file_stream = LGProperties.getStream(filename);
+            String jsonData = readFile(file_stream);
+            jsonObject = new JSONObject(jsonData);
+        } catch (Exception ex) {
+            System.out.println("Error trying to find file :" + filename);
+            ex.printStackTrace();
+            System.exit(-1);
+        } finally {
+            if(file_stream != null) {
+                try {
+                    file_stream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
         return jsonObject;
@@ -211,15 +203,7 @@ public class LocalEngineTester {
     private static JSONObject readLemongrenadeTopologyFile(String[] args) {
         String topologyConfigFile;
         if (args.length <= 0) {
-            // Pull default name from properties?
-            // Or search current path for lemongrenade-topology.json file
             topologyConfigFile = "default-topology.json";
-            if(checkResource(topologyConfigFile)) {
-                System.out.println("Found default topology file "+topologyConfigFile);
-            } else {
-                System.out.println("Unable to find default topology "+topologyConfigFile+"... Exiting");
-              //  System.exit(0);
-            }
         } else {
             topologyConfigFile = args[0];
         }

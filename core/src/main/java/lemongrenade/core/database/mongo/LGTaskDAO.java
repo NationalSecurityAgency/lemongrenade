@@ -9,4 +9,5 @@ public interface LGTaskDAO extends DAO<LGTask, ObjectId> {
     public void saveTask(LGTask lgTask);
     void update(String id, String var, boolean value);
     void update(String id, String var, long value);
+    void update(String taskId, String var, String value);
 }

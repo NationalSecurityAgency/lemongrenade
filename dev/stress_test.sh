@@ -1,1 +1,5 @@
-storm jar ../examples/target/examples-1.0-SNAPSHOT-jar-with-dependencies.jar lemongrenade.examples.test.StressTest
+#!/bin/bash
+
+EXAMPLES="${0%/*}/../examples/examples-latest-jar-with-dependencies.jar"
+
+/opt/storm/bin/storm jar "$EXAMPLES" lemongrenade.examples.test.StressTest

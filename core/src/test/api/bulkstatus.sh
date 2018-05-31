@@ -1,1 +1,1 @@
-curl  -H "Content-Type: application/json"  -X PUT  http://localhost:9999/api/jobs/status -d '{'jobs':[ {"job_id":"7ed59122-3c8d-11e6-bba7-64006a58e852"}, {"job_id":"1d8f5542-3c88-11e6-bba7-64006a58e852"}]}'
+curl  -H "Content-Type: application/json"  -X PUT  http://localhost:9999/api/jobs/status -d '{'jobs':[ {"job_id":"7ed59122-3c8d-11e6-bba7-000000000000"}, {"job_id":"1d8f5542-3c88-11e6-bba7-000000000000"}]}'

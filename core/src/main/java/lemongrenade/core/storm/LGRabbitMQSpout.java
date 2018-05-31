@@ -59,29 +59,24 @@ public class LGRabbitMQSpout extends lemongrenade.core.storm.RabbitMQSpout {
     }
 
     @Override
-    public void activate(){
-        super.activate();
-        // Handle when a spout has been activated out of a deactivated mode.
+    public void activate() {
         log.info("[LGRabbitMQSpout] ACTIVATE: "+adapterId);
-
+        super.activate();
+        // Handling when a spout has been activated out of a deactivated mode.
     }
 
-
-
     @Override
-    public void deactivate(){
-        super.deactivate();
-        // Handle when a spout has been deactivated.
+    public void deactivate() {
         log.info("DEACTIVATE: " + adapterId);
-
+        super.deactivate();
+        // Handling when a spout has been deactivated.
     }
 
     @Override
-    public void close(){
-        super.close();
-        // Handle when a spout is going to be shutdown.
-        // *** NOTE: This is only called in a clean shutdown ***
+    public void close() {
         log.info("SHUTDOWN: " + adapterName+" "+adapterId);
-
+        super.close();
+        // Handling when a spout is going to be shutdown.
+        // *** NOTE: This is only called in a clean shutdown ***
     }
 }

@@ -1,0 +1,46 @@
+<div ng-show="loading || isDataEmpty()" >
+  <div class="jumbotron">
+     <h1>Loading Adapter Data...</h1>
+  </div>
+</div>
+<br/>
+<div ng-show="!loading && !isDataEmpty()">
+<div class="row">
+  <div class="panel panel-default">
+    <div class="pull-right"></div>
+    <table class="table table-condensed">
+      <thead>
+	<tr class="panel-heading-custom">
+          <th class="col-xs-2">Adapter Name</th>
+          <th class="col-xs-2">Adapter ID</th>
+          <th class="col-xs-2">Status</th>
+          <th class="col-xs-2">Heartbeat</th>
+          <th class="col-xs-2">Uptime</th>
+          <th class="col-xs-2">Task Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-if="data.length == 0">
+          <td class="danger" colspan="4">No Adapters Reporitng!</td>
+        </tr>
+	<tr ng-repeat="ad in data">
+          <td class="col-xs-2">{{ad.name}}</td>
+          <td class="col-xs-2">{{ad.id}}</td>
+	  <td class="col-xs-2">
+	    <span ng-if="ad.status == 'NEW'"      class="label label-info">{{ad.status}}</span>
+            <span ng-if="ad.status == 'ONLINE'"   class="label label-success">{{ad.status}}</span>
+	    <span ng-if="ad.status == 'OFFLINE'"  class="label label-danger">{{ad.status}}</span>
+	    <span ng-if="ad.status == 'DEGRADED'" class="label label-danger">{{ad.status}}</span>
+	  </td>
+          <td class="col-xs-2">{{ad.last_hb}}</td>
+          <td class="col-xs-2">{{ad.uptime | ageFilter}}</td>
+          <td class="col-xs-2">{{ad.task_count}}</td>
+        </tr>
+      </tbody>
+    </table>
+ </div>
+</div>
+<!--{{data | json }}-->
+
+<p>Note: Task Count is number of tasks since last restart of LG. Not the number of tasks over lifetime of adapter.
+

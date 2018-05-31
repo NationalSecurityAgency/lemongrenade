@@ -13,8 +13,7 @@ import org.apache.storm.generated.ClusterSummary;
 import org.apache.storm.generated.Nimbus;
 import org.apache.storm.utils.NimbusClient;
 import org.apache.storm.utils.Utils;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisConnectionException;
+
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -22,7 +21,9 @@ import java.util.concurrent.TimeoutException;
 /** */
 public class CheckSystem {
 
-    /** */
+    /**
+     * @return 'true' for success
+     * */
     public boolean testStormNimbus() {
         String zookeeperhost = LGProperties.get("zookeeper.hostname");
         int zookeeperport = LGProperties.getInteger("zookeeper.port",2181); //2181
@@ -44,13 +45,16 @@ public class CheckSystem {
         return true;
     }
 
-    /** TODO: */
+    /**
+     * @return Incomplete test. Always returns 'false'
+     */
     public boolean testZookeeper() {
         return false;
     }
 
     /**
      * Test connection to LemonGraph
+     * @return 'true' if up, 'false' if down.
      */
     public boolean testLemonGraph() {
         LemonGraph lg = new LemonGraph();
@@ -58,24 +62,10 @@ public class CheckSystem {
         return isUp;
     }
 
-    /**
-     * Test Redis by jredis.ping()
-     */
-    public boolean testRedis() {
-        boolean ret = true;
-        Jedis jedis;
-        try {
-            jedis = new Jedis(LGProperties.get("redis.hostname"));
-            String resultStr = jedis.ping();
-            // resultStr will be PONG if running, but just watch for exception
-        }
-        catch (JedisConnectionException e) {
-            ret = false;
-        }
-        return ret;
-    }
 
-    /** */
+    /**
+     * @return 'true' if working, 'false' if not
+     * */
     public boolean testMongoDb() {
         String connectString = LGProperties.get("database.mongo.hostname").toString()
                 +":"+ LGProperties.get("database.mongo.port").toString();
@@ -91,6 +81,7 @@ public class CheckSystem {
 
     /**
      * Test RabbitMQ by trying to connect to COORDINATORCMD queue
+     * @return 'true' if connected to queue, 'false' otherwise
      * */
     public boolean testRabbit() {
         ConnectionFactory factory;
@@ -143,7 +134,6 @@ public class CheckSystem {
         boolean zooKeeperResult  = checkSystem.testZookeeper();
         boolean lemonGraphResult = checkSystem.testLemonGraph();
         boolean rabbitMqResult   = checkSystem.testRabbit();
-        boolean redisResult      = checkSystem.testRedis();
         boolean mongoResult      = checkSystem.testMongoDb();
         boolean stormNimbusResult= checkSystem.testStormNimbus();
 
@@ -158,8 +148,6 @@ public class CheckSystem {
         printResult(rabbitMqResult);
         System.out.print("     Zookeeper .............. ");
         printResult(zooKeeperResult);
-        System.out.print("     Redis .................. ");
-        printResult(redisResult);
         System.out.print("     MongoDB ................ ");
         printResult(mongoResult);
         System.out.print("     LemonGraph ............. ");
@@ -168,7 +156,9 @@ public class CheckSystem {
         System.out.println("Done.");
     }
 
-    /** */
+    /**
+     * @param result The result to be printed.
+     * */
     public static void  printResult(boolean result) {
         if (result) {
             System.out.println("["+(char)27 + "[32mUP" + (char)27 + "[0m]");

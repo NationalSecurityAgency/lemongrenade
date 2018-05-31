@@ -1,36 +1,37 @@
 package lemongrenade.core.storm;
 
-import io.latent.storm.rabbitmq.*;
+import io.latent.storm.rabbitmq.Declarator;
+import io.latent.storm.rabbitmq.ErrorReporter;
+import io.latent.storm.rabbitmq.Message;
+import io.latent.storm.rabbitmq.MessageScheme;
 import io.latent.storm.rabbitmq.config.ConsumerConfig;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.storm.spout.Scheme;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichSpout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Note; This file is forked from an Open Source Repository on GitHub
+ * A simple RabbitMQ spout that emits an anchored tuple stream (on the default stream). This can be used with
+ * Storm's guaranteed message processing.
  *
- * Modifications were made to support dead-lettering with RabbitMQ
- *
- * ORIGINAL SOURCE REPOSITORY:
- * https://github.com/ppat/storm-rabbitmq
- *
- * ORIGINAL LICENSE (MIT):
- * https://github.com/ppat/storm-rabbitmq/blob/master/LICENSE
+ * @author peter@latent.io
  */
 public class RabbitMQSpout extends BaseRichSpout {
+    private final Logger log = LoggerFactory.getLogger(RabbitMQSpout.class);
     private final MessageScheme scheme;
     private final Declarator declarator;
     private transient Logger logger;
     private transient lemongrenade.core.storm.RabbitMQConsumer consumer;
     private transient SpoutOutputCollector collector;
     private transient int prefetchCount;
+    private boolean open = false;
     private boolean active;
     private String streamId;
 
@@ -55,29 +56,35 @@ public class RabbitMQSpout extends BaseRichSpout {
     }
 
     public RabbitMQSpout(MessageScheme scheme, Declarator declarator, String streamId){
-        this.scheme =scheme;
+        this.scheme = scheme;
         this.declarator =declarator;
         this.streamId = streamId;
     }
 
-    @Override
-    public void open(final Map config,
+    @Override public void open(final Map config,
                      final TopologyContext context,
                      final SpoutOutputCollector spoutOutputCollector) {
-        ConsumerConfig consumerConfig = ConsumerConfig.getFromStormConfig(config);
-        ErrorReporter reporter = new ErrorReporter() {
-            @Override
-            public void reportError(Throwable error) {
-                spoutOutputCollector.reportError(error);
-            }
-        };
-        consumer = loadConsumer(declarator, reporter, consumerConfig);
-        scheme.open(config, context);
-        consumer.open();
-        prefetchCount = consumerConfig.getPrefetchCount();
-        logger = LoggerFactory.getLogger(RabbitMQSpout.class);
-        collector = spoutOutputCollector;
-        active = true;
+        if(open == false) {
+            log.info("Opening RabbitMQ spout.");
+            ConsumerConfig consumerConfig = ConsumerConfig.getFromStormConfig(config);
+            ErrorReporter reporter = new ErrorReporter() {
+                @Override
+                public void reportError(Throwable error) {
+                    spoutOutputCollector.reportError(error);
+                }
+            };
+            consumer = loadConsumer(declarator, reporter, consumerConfig);
+            scheme.open(config, context);
+            consumer.open();
+            prefetchCount = consumerConfig.getPrefetchCount();
+            logger = LoggerFactory.getLogger(RabbitMQSpout.class);
+            collector = spoutOutputCollector;
+            active = true;
+            open = true;
+        }
+        else {
+            log.info("RabbitMQ spout already open.");
+        }
     }
 
     protected RabbitMQConsumer loadConsumer(Declarator declarator,
@@ -91,15 +98,18 @@ public class RabbitMQSpout extends BaseRichSpout {
                 reporter);
     }
 
-    @Override
-    public void close() {
-        consumer.close();
-        scheme.close();
+    @Override public void close() {
+        if(consumer != null) {
+            consumer.close();
+        }
+        if(scheme != null) {
+            scheme.close();
+        }
         super.close();
+        open = false;
     }
 
-    @Override
-    public void nextTuple() {
+    @Override public void nextTuple() {
         if (!active) return;
         int emitted = 0;
         Message message;
@@ -158,15 +168,13 @@ public class RabbitMQSpout extends BaseRichSpout {
     }
 
     @Override
-    public void deactivate()
-    {
+    public void deactivate() {
         super.deactivate();
         active = false;
     }
 
     @Override
-    public void activate()
-    {
+    public void activate() {
         super.activate();
         active = true;
     }

@@ -4,11 +4,13 @@ import com.mongodb.WriteResult;
 import lemongrenade.core.models.LGJob;
 import lemongrenade.core.models.LGTask;
 import org.bson.types.ObjectId;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.mongodb.morphia.Datastore;
 import org.mongodb.morphia.dao.BasicDAO;
 import org.mongodb.morphia.query.Query;
 import org.mongodb.morphia.query.UpdateOperations;
+
 import java.util.*;
 
 public class LGJobDAOImpl extends BasicDAO<LGJob, ObjectId>
@@ -22,7 +24,20 @@ implements LGJobDAO
 
     public LGJob getByJobId(String jobId) {
         Query<LGJob> query = createQuery().field("_id").equal(jobId);
-        return query.get();
+        LGJob job = query.get();
+        return job;
+    }
+
+    public HashMap<String, LGJob> getByJobIds(JSONArray jobIds) {
+        Query<LGJob> query = createQuery().field("_id").hasAnyOf(jobIds);
+        HashMap<String, LGJob> jobs = new HashMap<>();
+        Iterator queryIterator = query.iterator();
+        while(queryIterator.hasNext()) {
+            LGJob job = (LGJob) queryIterator.next();
+            String jobId = job.getJobId();
+            jobs.put(jobId, job);
+        }
+        return jobs;
     }
 
     public void saveTask(LGTask lgTask) {
@@ -33,6 +48,10 @@ implements LGJobDAO
         return getDatastore().createQuery(LGJob.class).asList();
     }
 
+    public List<LGJob> getAllLimitFields(String... fields){
+        return getDatastore().createQuery(LGJob.class).retrievedFields(true, fields).asList();
+    }
+
     public List<LGJob> getLast(int count) {
         Query<LGJob> query = getDatastore().createQuery(LGJob.class)
                 .order("-createDate")
@@ -40,20 +59,71 @@ implements LGJobDAO
         return query.asList();
     }
 
-    public List<LGJob> getAllByDays(int fromDays, int toDays) {
-        if (fromDays <= 0) { fromDays = 1; }
-        if (toDays   <= 0) { toDays = 1; }
-        Calendar fromDate = Calendar.getInstance();
-        Calendar toDate = Calendar.getInstance();
-        fromDays *= -1; toDays *= -1;
-        fromDate.add(Calendar.DAY_OF_YEAR, fromDays);
-        toDate.add(Calendar.DAY_OF_YEAR, toDays);
-        Query<LGJob> query = getDatastore().createQuery(LGJob.class)
-                .filter("createDate <=", fromDate.getTime())
-                .filter("createDate >=",toDate.getTime());
+    /**
+     * finds job by date ranges
+     * @param createdBefore   date  - "Includes the day listed", example: "2016-08-08T18:04:23.514Z"
+     * @param createdAfter    date  - "Includes the day listed", example: "2016-08-08T18:04:23.514Z"
+     * @return List of LGJob items found
+     */
+    public List<LGJob> getAllByDateRange(Date createdBefore, Date createdAfter) {
+        Query<LGJob> query;
+        if ((createdBefore != null)  && (createdAfter == null) ) {
+            query = getDatastore().createQuery(LGJob.class)
+                .field("createDate").lessThanOrEq(createdBefore);
+        } else if ((createdBefore == null)  && (createdAfter != null)) {
+                query = getDatastore().createQuery(LGJob.class)
+                        .field("createDate").greaterThanOrEq(createdAfter);
+            } else {
+            query = getDatastore().createQuery(LGJob.class)
+                    .filter("createDate <=", createdBefore)
+                    .filter("createDate >=", createdAfter);
+        }
         return query.asList();
     }
 
+    /** */
+    public List<LGJob> getAllByDays(int fromDays, int toDays) {
+        boolean noLimit = false;
+        Calendar fromDate = Calendar.getInstance();
+        Calendar toDate = Calendar.getInstance();
+
+        if (fromDays <= 0) { fromDays = 1; }
+        if (toDays   <= 0) {
+            noLimit = true;
+        }
+        if (!noLimit) {
+            fromDays *= -1;
+            toDays *= -1;
+            fromDate.add(Calendar.DAY_OF_YEAR, fromDays);
+            toDate.add(Calendar.DAY_OF_YEAR, toDays);
+            Query<LGJob> query = getDatastore().createQuery(LGJob.class)
+                    .filter("createDate <=", fromDate.getTime())
+                    .filter("createDate >=", toDate.getTime());
+            return query.asList();
+        }
+        fromDays *= -1;
+        fromDate.add(Calendar.DAY_OF_YEAR, fromDays);
+        Query<LGJob> query = getDatastore().createQuery(LGJob.class)
+                .filter("createDate <=",fromDate.getTime());
+        return query.asList();
+    }
+
+    /**
+     * Gets all jobs OLDER than days old
+     * @param days int of days
+     * @return List of LGJob items
+     */
+    public List<LGJob> getAllByOlderThanDays(int days) {
+        Calendar fromDate = Calendar.getInstance();
+        days = days *-1;
+        fromDate.add(Calendar.DAY_OF_YEAR, days);
+        System.out.println("Looking for all jobs older than " + fromDate.getTime());
+        Query<LGJob> query = getDatastore().createQuery(LGJob.class)
+                .filter("createDate <=",fromDate.getTime());
+        return query.asList();
+    }
+
+    /** */
     public List<LGJob> getAllByMins(int fromMins, int toMins) {
         Calendar fromDate = Calendar.getInstance();
         Calendar toDate = Calendar.getInstance();
@@ -61,10 +131,9 @@ implements LGJobDAO
         toMins *= -1;
         fromDate.add(Calendar.MINUTE, fromMins);
         toDate.add(Calendar.MINUTE, toMins);
-        System.out.println("DATES "+fromDate.toString()+"  "+toDate.toString());
         Query<LGJob> query = getDatastore().createQuery(LGJob.class)
                 .filter("createDate <=", fromDate.getTime())
-                .filter("createDate >=",toDate.getTime());
+                .filter("createDate >=", toDate.getTime());
         return query.asList();
     }
 
@@ -79,9 +148,31 @@ implements LGJobDAO
         return query.asList();
     }
 
+    //Get all jobs PROCESSING/NEW/ERROR
     public List<LGJob> getAllActive() {
         Query<LGJob> q = getDatastore().createQuery(LGJob.class);
         q.field("status").equal(LGJob.STATUS_PROCESSING);
+        List unfinished = q.asList();;
+        unfinished.addAll(getAllNew());
+        unfinished.addAll(getAllError());
+        return unfinished;
+    }
+
+    public List<LGJob> getAllProcessing() {
+        Query<LGJob> q = getDatastore().createQuery(LGJob.class);
+        q.field("status").equal(LGJob.STATUS_PROCESSING);
+        return q.asList();
+    }
+
+    public List<LGJob> getAllNew() {
+        Query<LGJob> q = getDatastore().createQuery(LGJob.class);
+        q.field("status").equal(LGJob.STATUS_NEW);
+        return q.asList();
+    }
+
+    public List<LGJob> getAllError() {
+        Query<LGJob> q = getDatastore().createQuery(LGJob.class);
+        q.field("status").equal(LGJob.STATUS_ERROR);
         return q.asList();
     }
 
@@ -121,14 +212,22 @@ implements LGJobDAO
         getDatastore().update(query, ops);
     }
 
+
+    public void updatePush(String jobId, String var, String value) {
+        Query<LGJob> query = createQuery().field("_id").equal(jobId);
+        UpdateOperations<LGJob> ops = getDatastore().createUpdateOperations(LGJob.class).add(var, value);
+
+        getDatastore().update(query, ops);
+    }
+
+
     public void updateInt(String jobId, String var, int value) {
         Query<LGJob> query = createQuery().field("_id").equal(jobId);
         UpdateOperations<LGJob> ops = getDatastore().createUpdateOperations(LGJob.class).set(var, value);
         getDatastore().update(query, ops);
     }
 
-    @Override
-    public WriteResult delete(LGJob inJob) {
+    @Override public WriteResult delete(LGJob inJob) {
         LGJob lgjob = getByJobId(inJob.getJobId());
         Map<String, LGTask> taskMap = lgjob.getTaskMap();
         for (Map.Entry<String, LGTask> entry : taskMap.entrySet()) {

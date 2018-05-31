@@ -1,0 +1,55 @@
+
+<div class="container">
+<h3>Job: {{jobid}}</h3> 
+
+
+
+
+<div class="row">
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Graph Changes Per Task</div>
+      <div class="panel-body">
+
+	<canvas id="graph_changes_per_task_chart" 
+		class="chart chart-bar" 
+		chart-data="data_graph_changes_per_task"
+		chart-labels="labels" 
+		chart-series="series" 
+		chart-options="options"
+		chart-dataset-override="datasetOverride" 
+		chart-click="onClick">
+	  </canvas>
+      </div>
+    </div>
+  </div> 
+</div>
+
+<div class="row">
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Graph Changes per Adapter Overall</div>
+      <div class="panel-body">
+
+	<canvas id="graph_changes_per_task_chart" 
+		class="chart chart-pie" 
+		chart-data="data_pie_adapter"
+		chart-labels="pie_adapter_labels" >
+	  </canvas>
+      </div>
+    </div>
+  </div> 
+</div>
+<!--{{data_pie_adapter | json}}-->
+
+<br/>
+<small>Yo Dawg! I heard you like graphs. So, I put a graph in your graph.</small>
+</div>
+
+<!--{{data_graph_changes_per_task | json}} -->
+<!--{{labels | json}} -->
+
+
+
+
+

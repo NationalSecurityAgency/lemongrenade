@@ -1,0 +1,42 @@
+<div ng-show="loading || isDataEmpty()" >
+  <div class="jumbotron">     <h1>Loading Data...</h1>
+  </div>
+</div>
+
+<div>
+Errors for {{jobid}}
+<!-- Jobs Table -->
+<div class="row">
+  <div class="panel panel-default">
+    <div class="pull-left">
+      <span class="label label-default">Job Errors</span>  
+
+    </div>
+    <table class="table table-condensed">
+      <thead>
+        <tr>
+          <th class="">TimeStamp</th>
+          <th class="">Adapter</th>
+          <th class="">TaskId</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-if="data.stats.total_job_count == 0">
+         <td class="danger" colspan="9">No Jobs</td>
+        </tr>
+        <tr ng-repeat="error in job.errors | orderObjectByDate:'timestamp':true"   >
+	  <td>{{error.timestamp}}</td>
+          <td class="">{{error.adapter}}</td>
+          <td class="">{{error.taskId}}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div> <!--/row -->
+
+
+</div> <!-- /ng-show=loading -->
+
+
+<!--{{job.errors | json }} -->
+

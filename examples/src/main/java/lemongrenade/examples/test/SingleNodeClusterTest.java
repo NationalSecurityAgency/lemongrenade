@@ -1,6 +1,6 @@
 package lemongrenade.examples.test;
 
-import lemongrenade.core.SubmitJob;
+import lemongrenade.core.SubmitToRabbitMQ;
 import lemongrenade.core.models.LGPayload;
 import org.apache.storm.Config;
 import org.json.JSONArray;
@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
+
+import static sun.security.util.Password.readPassword;
 
 public class SingleNodeClusterTest {
     private final static ArrayList<String> DEFAULT_APPROVED_ADAPTERS = createApprovedAdapters();
@@ -36,37 +38,37 @@ public class SingleNodeClusterTest {
     }
 
     public static void feedCoordinator(int sleep, int times, ArrayList<String> approvedAdapters, JSONArray nodes) throws Exception {
-        SubmitJob submitJob = new SubmitJob();
         String jobId;
+        SubmitToRabbitMQ submit = new SubmitToRabbitMQ();
         for (int i = 0; i != times; i++) {
             LGPayload lgp = new LGPayload();
             lgp.addResponseNodes(nodes);
             JSONObject jobConfig = new JSONObject();
             jobConfig.put("depth","6");
             lgp.setJobConfig(jobConfig);
-            submitJob.sendNewJobToCommandController(approvedAdapters, lgp);
+            submit.sendNewJobToCommandController(approvedAdapters, lgp);
             if (sleep > 0) {
                 Thread.sleep(sleep); // ~500 requests/sec
             }
         }
-        submitJob.closeConnections();
+        submit.close();
     }
 
     public static void feedCoordinator(int sleep, int times, ArrayList<String> approvedAdapters, JSONObject node) throws Exception {
-        SubmitJob submitJob = new SubmitJob();
         String jobId;
+        SubmitToRabbitMQ submit = new SubmitToRabbitMQ();
         for (int i = 0; i != times; i++) {
             LGPayload lgp = new LGPayload();
             lgp.addResponseNode(node);
             JSONObject jobConfig = new JSONObject();
             jobConfig.put("depth","6");
             lgp.setJobConfig(jobConfig);
-            submitJob.sendNewJobToCommandController(approvedAdapters, lgp);
+            submit.sendNewJobToCommandController(approvedAdapters, lgp);
             if (sleep > 0) {
                 Thread.sleep(sleep); // ~500 requests/sec
             }
         }
-        submitJob.closeConnections();
+        submit.close();
     }
 
     public static JSONObject merge_config(JSONObject job_config, Config config) {//merges Config into job_config
@@ -78,6 +80,18 @@ public class SingleNodeClusterTest {
             job_config.put(key, value);
         }
         return job_config;
+    }
+
+    public static String read_password(String msg) {
+        System.out.println(msg);//print message for user
+        char[] input = {};
+        try {
+            input = readPassword(System.in, false);
+        } catch (IOException e) {
+            System.out.println("Failed to get password from System.in.");
+            e.printStackTrace();
+        }
+        return input.toString();
     }
 
     /** */

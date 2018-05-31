@@ -1,0 +1,9 @@
+
+In the next OpenSource release of Lemongraph, please remove these JS libraries (except for lemonview.js)
+And replace all the calls to the public repositories. for example:
+
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.js"></script>
+<script	src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+
+Goes for chart.js, angularjs-chart.js, boostrap.js,  and the associated CSS files
+

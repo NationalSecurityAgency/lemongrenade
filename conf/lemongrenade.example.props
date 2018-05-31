@@ -1,0 +1,63 @@
+#
+#
+# Lemongrenade Properties File
+#
+#
+#
+adapter_heartbeat=10
+lemongraph_url=http://localhost:8001/
+
+# Dependencies
+rabbit.hostname=localhost
+rabbit.port=5672
+rabbit.adminport=15672
+mongo.hostname=localhost
+
+# Logins
+rabbit.user=guest
+rabbit.password=guest
+rabbit.adminuser=guest
+rabbit.adminpassword=guest
+
+# Performance Tweaking
+# Adapters and Coordinator will use 'topology.parallelism' if their specific thread assignment value isn't defined.
+rabbit.gatheradminpetrics=false
+rabbit.prefetch.messages=1000
+rabbit.spout.threads=1
+rabbit.sink.threads=1
+coordinator.command.threads=1
+coordinator.threads=5
+adapter.threads=6
+topology.parallelism=6
+adapter.tasks=10
+max_processing_jobs_per_coordinator=1000
+max_graph_size=50000
+max_adapter_heartbeat_time=300
+
+# this will make the adapter split large tasks into multiple smaller tasks, <1 = no splitting
+max_nodes_per_task=500
+
+# Amount of seconds a job is idle before we consider the job FINISHED
+max_job_idle_seconds=30
+
+# Maximum amount of seconds we allow any job to run before we give up on it
+max_job_run_time_seconds = 86400
+
+# Database
+database=mongo
+database.mongo.hostname=localhost
+database.mongo.port=27017
+database.mongo.databasename=lemongrenade
+
+# Graph Store
+# valid graph modes are internal,lemongraph
+coordinator.graphstore=lemongraph
+
+# Zookeeper
+zookeeper.hostname=localhost
+zookeeper.port=2181
+
+#LGServer
+api.rootpath=/opt/lemongrenade/webapp/static/
+api.port=9999
+api.idle_timeout=120000

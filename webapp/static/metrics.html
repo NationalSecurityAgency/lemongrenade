@@ -1,0 +1,218 @@
+
+<div class="container">
+
+
+<div class="row">
+  <div class="col-lg-8 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Metrics For Last 30 days</div>
+      <div class="panel-body">
+	<table class="table table-bordered table-sm ">
+	  <tr><td>Total Jobs</td><td>{{data.total_job_count}}</td></tr>
+	  <tr><td>Total Tasks</td><td>{{data.total_task_count}}</td></tr>
+	  <tr><td>Total Errors</td><td>{{data.total_error_count}}</td></tr>
+	  <tr><td>Average Job Run Time</td><td>{{data.avg_job_time}} seconds</td></tr>
+	  <tr><td>Last Data Poll Time</td><td>{{data.last_run_time}}</td></tr>
+	</table>
+      </div>
+    </div>
+  </div> 
+
+<!-- Jobs/tasks per day -->
+<div class="row">
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Jobs Per Day</div>
+      <div class="panel-body">
+	<canvas id="jobs_per_day_chart" 
+		class="chart chart-line" 
+		chart-data="data_jobs_per_day"
+		chart-labels="labels" 
+		chart-series="series" 
+		chart-options="options"
+		chart-dataset-override="datasetOverride" 
+		chart-click="onClick">
+	</canvas>
+      </div>
+    </div>
+  </div> 
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading  panel-heading-custom">Tasks Per Day</div>
+      <div class="panel-body">
+	<canvas id="tasks_per_day_chart" 
+		class="chart chart-line" 
+		chart-data="data_tasks_per_day"
+		chart-labels="labels" 
+		chart-series="series" 
+		chart-options="options"
+		chart-dataset-override="datasetOverride" 
+		chart-click="onClick">
+	</canvas>
+      </div>
+    </div>
+  </div>
+</div> <!--/row-->
+<!-- /Jobs/tasks per day -->
+
+<!-- Errors/activity per day -->
+<div class="row">
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Errors Per Day</div>
+      <canvas id="errors_per_day_chart" 
+	      class="chart chart-line" 
+	      chart-data="data_errors_per_day"
+	      chart-labels="labels" 
+	      chart-series="series" 
+	      chart-options="options"
+	      chart-dataset-override="datasetOverride" 
+	      chart-click="onClick">
+      </canvas>
+      <div class="panel-body"></div>
+    </div>
+  </div>
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Graph Activity (min/max/avg) Per Day</div>
+      <canvas id="graph_activity_per_day_chart" 
+	      class="chart chart-line" 
+	      chart-data="graph_activity_per_day"
+	      chart-labels="labels"
+	      chart-series="series_graph_activity" 
+	      chart-options="options"
+	      chart-dataset-override="datasetOverride" 
+	      chart-click="onClick">
+      </canvas>
+      <div class="panel-body"></div>
+    </div>
+  </div>
+</div> <!--/row-->
+
+<!-- Job count by hour -->
+<div class="row">
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading  panel-heading-custom">Job Submitted By Hour</div>
+      <canvas id="errors_per_day_chart" 
+	      class="chart chart-line" 
+	      chart-data="data_job_count_by_hour"
+	      chart-labels="labels_hour" 
+	      chart-series="series" 
+	      chart-options="options"
+	      chart-dataset-override="datasetOverride" 
+	      chart-click="onClick">
+      </canvas>
+      <div class="panel-body"></div>
+    </div>
+  </div>
+  <div class="col-lg-5 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">TBD</div>
+      <div class="panel-body"></div>
+    </div>
+  </div>
+</div> <!--/row-->
+
+
+<!-- Top ten users by job submmitted -->
+<a name="top_ten_users_by_job_submitted"></a>
+<div class="row">
+  <div class="col-lg-8 col-sm-12">
+    <div class="panel panel-default">
+      <div class="panel-heading panel-heading-custom">Top Ten Users By Job Count</div>
+      <div class="panel-body">
+	<table class="table table-bordered table-sm ">
+	  <tr><th>User</th><th>Job Count</th></tr>
+	  <tr ng-repeat="(user,val) in data_top_ten_users_by_job_submitted">
+	    <td>{{user}}</td><td>{{val}}</td>
+	  </tr>
+	</table>
+      </div>
+    </div>
+  </div> 
+</div>
+
+
+
+
+<!--- adapters -->
+<h4>Adapters</h4>
+<div ng-repeat="adapter in adapters">
+  <div class="panel panel-default">
+    <div class="panel-heading panel-heading-custom"> Adapter: {{adapter}}</div>
+    <div class="panel-body">
+      <div class="row">
+	<div ng-repeat="adapterchart in adapterAvgRunTimeDayList">
+	  <div ng-if="adapter == adapterchart.name">
+	    <div class="col-lg-5 col-sm-12">
+	      <div class="panel panel-default">
+		<div class="panel-heading panel-heading-custom">Avg Runtime</div>
+		<canvas class="chart chart-line" id="chart1" 
+			chart-labels="labels" 
+			chart-data="adapterchart.data" 
+			chart-options="adapterchart.options" >
+		</canvas>
+		<div class="panel-body"></div>
+	      </div>
+	    </div>
+	  </div> 
+	</div>
+	<div ng-repeat="adapterchart in adapterErrorsPerDayList">
+	  <div ng-if="adapter == adapterchart.name">
+	    <div class="col-lg-5 col-sm-12">
+	      <div class="panel panel-default">
+		<div class="panel-heading panel-heading-custom">Errors Per Day</div>
+		<canvas class="chart chart-line" id="chart1" 
+			chart-labels="labels" 
+			chart-data="adapterchart.data" 
+			chart-options="adapterchart.options" >
+		</canvas>
+		<div class="panel-body"></div>
+	      </div>
+	    </div>
+	  </div> 
+	</div>
+      </div> <!-- /row --> 
+
+      <div class="row">
+	<div ng-repeat="adapterchart in adapterTasksPerDayList">
+	  <div ng-if="adapter == adapterchart.name">
+	    <div class="col-lg-5 col-sm-12">
+	      <div class="panel panel-default">
+		<div class="panel-heading panel-heading-custom">Tasks Per Day</div>
+		<canvas class="chart chart-line" id="chart1" 
+			chart-labels="labels" 
+			chart-data="adapterchart.data" 
+			chart-options="adapterchart.options" >
+		</canvas>
+		<div class="panel-body"></div>
+	      </div>
+	    </div>
+	  </div> 
+	</div>
+
+	<div ng-repeat="adapterchart in adapterTasksSpawnedPerDayList">
+	  <div ng-if="adapter == adapterchart.name">
+	    <div class="col-lg-5 col-sm-12">
+	      <div class="panel panel-default">
+		<div class="panel-heading panel-heading-custom">Tasks Spawned Per Day</div>
+		<canvas class="chart chart-line" id="chart1" 
+			chart-labels="labels" 
+			chart-series="series_graph_tasks_spawned"
+			chart-data="adapterchart.data" 
+			chart-options="adapterchart.options" >
+		</canvas>
+		<div class="panel-body"></div>
+	      </div>
+	    </div>
+	  </div> 
+	</div>
+      </div> 
+    </div> 
+  </div> <!-- /row -->
+</div> <!-- /panel-body -->
+</div> <!-- /panel-default-->
+
+
+</div> <!--/containter -->

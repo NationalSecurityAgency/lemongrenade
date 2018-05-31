@@ -83,19 +83,19 @@ public class LGJobHistory {
     /** */
     public JSONObject toJson() {
         JSONObject jo = new JSONObject(1);
-        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd,yyyy HH:mm:ss");
-        Date startDate = new Date(this.startTime);
-        Date endDate = new Date(this.endTime);
-        jo.put("task_id", this.taskId);
-        jo.put("commandtype", this.commandType);
-        jo.put("message", this.message);
-        jo.put("startdate", sdf.format(startDate));
-        jo.put("enddate", sdf.format(endDate));
+//        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd,yyyy HH:mm:ss");
+//        Date startDate = new Date(this.startTime);
+//        Date endDate = new Date(this.endTime);
         jo.put("command", this.command);
-        jo.put("graph_changes", this.graphChanges);
-        jo.put("graph_max_id", this.graphMaxId);
-        jo.put("current_id", this.currentId);
-        jo.put("number_of_new_tasks_generated", this.numberOfNewTasksGenerated);
+        jo.put("commandType", this.commandType);
+        jo.put("startTime", this.startTime);
+        jo.put("endTime", this.endTime);
+        jo.put("graphChanges", this.graphChanges);
+        jo.put("graphMaxId", this.graphMaxId);
+        jo.put("currentId", this.currentId);
+        jo.put("numberOfNewTasksGenerated", this.numberOfNewTasksGenerated);
+        jo.put("message", this.message);
+        jo.put("taskId", this.taskId);
         return jo;
     }
 }

@@ -1,0 +1,174 @@
+<div ng-show="loading || isDataEmpty()" >
+  <div class="jumbotron">     <h1>Loading Data...</h1>
+  </div>
+</div>
+
+<div>
+
+<!-- Jobs Table -->
+<div class="row">
+  <div class="panel panel-default">
+    <div class="pull-left">
+      <span class="label label-default">Showing Last 50 Jobs</span>  
+
+    </div>
+    <table class="table table-condensed">
+      <thead>
+        <tr>
+          <th class="">Job ID</th>
+          <th class="">Status</th>
+          <th class="">Graph</th>
+          <th class="">Tasks</th>
+          <th class="">Errors</th>
+          <th class="">Run Time</th>
+	  <th class="">User</th>
+          <th class="">CreateDate</th>
+          <th class="">&nbsp;</th>
+          <th class="">&nbsp;</th>
+          <th class=""><!--<button class="btn btn-primary btn-xs" ng-click="toggleCreateJobModal()"><i class="glyphicon glyphicon-plus"></i> New Job</button>--></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-if="data.stats.total_job_count == 0">
+         <td class="danger" colspan="9">No Jobs</td>
+        </tr>
+
+        <tr ng-repeat="job in data | orderObjectByDate:'create_date':true"   >{{job.create_date}}
+          <td class="">
+              <a href="/view/index.html?{{job.job_id}}">{{job.job_id}}</a>&nbsp; <a href="/#/jobmetrics/{{job.job_id}}"><button class="btn btn-primary btn-xs"><i class="glyphicon glyphicon-stats"></i></button></a>
+	  </td>
+          <td class="">
+	    <span ng-if="job.status == 'FINISHED\_WITH\_ERRORS'" class="label label-danger">{{job.status}}</span>
+	    <span ng-if="job.status == 'NEW'"        class="label label-info">{{job.status}}</span>
+	    <span ng-if="job.status == 'PROCESSING'" class="label label-info">{{job.status}}</span>
+	    <span ng-if="job.status == 'RESET'"   class="label label-danger">{{job.status}}</span>
+	    <span ng-if="job.status == 'STOPPING'"   class="label label-danger">{{job.status}}</span>
+	    <span ng-if="job.status == 'STOPPED'"    class="label label-danger">{{job.status}}</span>
+	    <span ng-if="job.status == 'ERROR'"      class="label label-danger">{{job.status}}</span>
+	    <span ng-if="job.status == 'FINISHED'"   class="label label-success">{{job.status}}</span>
+	    <span ng-if="job.status == 'UNKNOWN'"    class="label label-primary">{{job.status}}</span>
+	  </td>
+          <td class="">{{job.graph_activity}}</td>
+          <td class=""><a href="/#/job/{{job.job_id}}">{{job.active_task_count}}/{{job.task_count}}</a></td>
+          <td class="">
+	    <span ng-if="job.error_count==0" class="label label-success">{{job.error_count}}</span>
+	    <span ng-if="job.error_count!=0" class="label label-danger"><a href="/#/joberrors/{{job.job_id}}">{{job.error_count}}</a></span>
+	  </td>
+            <td class="">
+	      
+	      <span ng-if="job.status == 'FINISHED' || job.status == 'FINISHED_WITH_ERRORS'">
+            {{(job.runtime)|ageFilter}}
+	      </span>
+	    </td>
+	   
+          <td class="">{{findUser(job.job_config) | limitTo: 20 : 3}}</td>
+          <td class="">{{job.create_date}}</td>
+          <td class="">
+	    <div class="pull-right">                                                                              
+	      <span ng-if="job.status == 'FINISHED\_WITH\_ERRORS'"><button class="btn btn-xs btn-danger" ng-click="toggleRetryJobModal(job.job_id)">Retry</button></span>
+	    </div>
+	  </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div> <!--/row -->
+
+
+</div> <!-- /ng-show=loading -->
+
+
+
+<!-- CREATE JOB MODAL --->
+<modal title="Create New LemonGrenade Job" visible="showCreateJobModal">
+
+<form  ng-submit="$parent.createJob(newjob)" novalidate>
+  <div class="form-group">
+    <label for="title">Description:</label>
+    <input class="form-control" id="description" placeholder="Enter description of this job" ng-model="newjob.description" size="40" required/>
+    <p ng-show="descriptionrequired" class="bg-danger">Description is required!</p>
+  </div>
+  <div class="form-group">
+    <label for="seeddata">Seed Data:</label>
+    <textarea class="form-control" ng-list="&#10;" ng-trim="false" name="seeddata" id="seeddata" ng-model="newjob.seeddata" cols="50" rows="3" type="textarea"/ required></textarea>
+    <p ng-show="seeddatarequired" class="bg-danger">Seed is required!</p>
+  </div>
+  <div class="form-group">
+    <label for="depth">Depth:</label>
+    <input class="form-control" id="depth" name="depth" ng-model="newjob.depth" size="4"/>
+    <p ng-show="depthrequired" class="bg-danger">Depth is required!</p>
+  </div>
+  <div class="form-group">
+    <label for="Adapter">Adapters: (Active Adapters:{{adapterCount}})</label>
+      <div ng-if="adapterCount == 0">
+	<p class="bg-danger">No valid adapters found. Please load an adapter and try again.</p>
+      </div>
+      <div ng-repeat="ad in adapters">
+	<label class="checkbox indent-checkbox">
+	  <input class="indent-checkbox" class="form-group" type="checkbox" ng-model="newjob.adapters[ad]" id="{{ad}}"  >{{ad }}</input>
+        </label>
+      </div>
+  </div>
+</div>
+<button type="button" id="createjobcancelbutton" class="btn btn-danger btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button type="submit"  ng-disabled="adapterCount<=0" class="btn btn-primary btn-default pull-right">Create Job</button>
+</form>
+<br/>
+</modal>
+
+
+
+<!--RETRY JOB MODAL --->
+<modal title="Retry Failed Tasks" visible="showRetryJobModal">
+<P>Are you sure you want to retry job: {{showRetryJobModalId}}</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button type="button"  ng-click="$parent.retryJob(showRetryJobModalId)" class="btn btn-danger btn-default pull-right" data-dismiss="modal" aria-hidden="true">Yes, Retry Failed Tasks!</button>
+<br/>
+</modal>
+
+
+<!-- DELETE JOB MODAL --->
+<modal title="Delete Job" visible="showDeleteJobModal">
+<P>Are you sure you want to delete job: {{showDeleteJobModalId}}</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button type="button"  ng-click="$parent.deleteJob(showDeleteJobModalId)" class="btn btn-danger btn-default pull-right" data-dismiss="modal" aria-hidden="true">Yes, Delete it!</button>
+<br/>
+</modal>
+
+<!-- DELETE ALL JOBS MODAL --->
+<modal title="Delete ALL Jobs" visible="showDeleteAllJobsModal">
+<P>Are you sure you want to delete ALL JOBS?</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<div class="pull-right">
+<button type="button"  ng-click="$parent.deleteAllJobs(false)" class="btn btn-danger btn-default" data-dismiss="modal" aria-hidden="true">Yes, Delete ALL Jobs!</button>
+</div>
+<br/>
+</modal>
+
+
+<!-- STOP ALL JOBS MODAL --->
+<modal title="STOP ALL Jobs" visible="showStopAllJobsModal">
+<P>Are you sure you want to STOP ALL JOBS?</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<div class="pull-right">
+<button type="button"  ng-click="$parent.stopAllJobs(false)" class="btn btn-danger btn-default" data-dismiss="modal" aria-hidden="true">Yes, Stop ALL Jobs!</button>
+</div>
+<br/>
+</modal>
+
+
+<!-- STOP JOB MODAL --->
+<modal title="STOP Job" visible="showStopJobModal">
+<P>Are you sure you want to STOP job: {{showStopJobModalId}}</p>
+<br/>
+<button type="button"  class="btn btn-primary btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button type="button"  ng-click="$parent.stopJob(showStopJobModalId)" class="btn btn-danger btn-default pull-right" data-dismiss="modal" aria-hidden="true">Yes, Stop it!</button>
+<br/>
+</modal>
+
+<!--{{data | json }} -->
+

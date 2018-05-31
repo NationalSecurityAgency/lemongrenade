@@ -24,6 +24,6 @@ public class EndlessFeed extends SingleNodeClusterTest {
                 .put("type", "id")
                 .put("value", UUID.randomUUID());
 
-        feedCoordinator(2000, -1, approvedAdapters, node);//1 request every second, no limit
+        SingleNodeClusterTest.feedCoordinator(2000, -1, approvedAdapters, node);//1 request every second, no limit
     }
 }

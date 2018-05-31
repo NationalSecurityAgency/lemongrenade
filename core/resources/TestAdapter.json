@@ -1,0 +1,5 @@
+{
+  "topology.workers": 1,
+  "adapter.threads": 2,
+  "adapter.tasks": 3
+}

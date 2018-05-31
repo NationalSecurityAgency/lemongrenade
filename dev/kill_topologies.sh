@@ -1,9 +1,7 @@
-#Kill all default topologies
-storm kill AsyncAdapter &
-storm kill CurlAdapter &
-storm kill HelloWorldAdapter &
-storm kill HelloWorldNodeAdapter &
-storm kill HelloWorldPython3Adapter &
-storm kill HelloWorldPythonAdapter &
-storm kill PlusBangAdapter &
-storm kill CoordinatorTopology &
+#!/bin/bash
+
+# kill all topologies
+for x in `/opt/storm/bin/storm list | awk '/^-{30,}$/{y=1; next}y{print $1}'`; do
+	/opt/storm/bin/storm kill "$x" -w 5 &
+done
+wait

@@ -1,0 +1,19 @@
+{
+  "lemongrenade-topology": {
+    "description": "Custom Test Topology Definition",
+    "number_of_coordinators": 1,
+    "graphapi": "lemongraph",
+    "adapters": [
+      {
+        "class": "lemongrenade.examples.adapters.FailAdapter",
+        "id": "00000000-0000-0000-0000-100000000000",
+        "enabled": true
+      },
+      {
+        "class": "lemongrenade.core.coordinator.CoordinatorTopology",
+        "id": "00000000-0000-0000-0000-000000000000",
+        "enabled": true
+      }
+    ]
+  }
+}

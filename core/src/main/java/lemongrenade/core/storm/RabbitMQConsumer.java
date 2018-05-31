@@ -16,17 +16,12 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Note; This file is forked from an Open Source Repository on GitHub
+ * An abstraction on RabbitMQ client API to encapsulate interaction with RabbitMQ and de-couple Storm API from RabbitMQ API.
  *
- * Modifications were made to support dead-lettering with RabbitMQ
- *
- * ORIGINAL SOURCE REPOSITORY:
- * https://github.com/ppat/storm-rabbitmq
- *
- * ORIGINAL LICENSE (MIT):
- * https://github.com/ppat/storm-rabbitmq/blob/master/LICENSE
+ * @author peter@latent.io
  */
 public class RabbitMQConsumer implements Serializable {
+    private final Logger log = LoggerFactory.getLogger(getClass());
     public static final long MS_WAIT_FOR_MESSAGE = 1L;
 
     public HashMap<Long, Object> messages;
@@ -71,17 +66,17 @@ public class RabbitMQConsumer implements Serializable {
             return Message.forDelivery(message);
         } catch (ShutdownSignalException sse) {
             reset();
-            logger.error("shutdown signal received while attempting to get next message", sse);
+            logger.error("Shutdown signal received while attempting to get next message.", sse);
             reporter.reportError(sse);
             return Message.NONE;
         } catch (InterruptedException ie) {
       /* nothing to do. timed out waiting for message */
-            logger.debug("interrupted while waiting for message", ie);
+            logger.debug("Interrupted while waiting for message.", ie);
             return Message.NONE;
         } catch (ConsumerCancelledException cce) {
       /* if the queue on the broker was deleted or node in the cluster containing the queue failed */
             reset();
-            logger.error("consumer got cancelled while attempting to get next message", cce);
+            logger.error("Consumer got cancelled while attempting to get next message.", cce);
             reporter.reportError(cce);
             return Message.NONE;
         }
@@ -94,10 +89,10 @@ public class RabbitMQConsumer implements Serializable {
             channel.basicAck(msgId, false);
         } catch (ShutdownSignalException sse) {
             reset();
-            logger.error("shutdown signal received while attempting to ack message", sse);
+            logger.error("Shutdown signal received while attempting to ack message.", sse);
             reporter.reportError(sse);
         } catch (Exception e) {
-            logger.error("could not ack for msgId: " + msgId, e);
+            logger.error("Could not ack for msgId: " + msgId, e);
             reporter.reportError(e);
         }
     }
@@ -133,8 +128,14 @@ public class RabbitMQConsumer implements Serializable {
             Message.DeliveredMessage message = (Message.DeliveredMessage) messages.get(msgId);
             HashMap<String, Object> headers = getIncrementedHeader(message);
             int times_sent = (int) headers.get("times-sent");
-            if(times_sent  < this.MAX_RETRIES) {
+            if(times_sent  < this.MAX_RETRIES) { //retry the message when it fails 2 times
                 message = (Message.DeliveredMessage) messages.get(msgId);
+                byte[] body = message.getBody();
+                LGPayload payload = LGPayload.deserialize(body);
+                String taskId = payload.getTaskId();
+                String jobId = payload.getJobId();
+                log.info("*** Task failed, but max retries not met. Retrying ("+(times_sent+1)+"/"+this.MAX_RETRIES+"). " +
+                        "RETRYING TaskId:"+taskId+" JobId:"+jobId);
                 AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
                         .contentType(message.getContentType())
                         .contentEncoding(message.getContentEncoding())
@@ -144,36 +145,30 @@ public class RabbitMQConsumer implements Serializable {
                 channel.basicPublish(message.getExchange(),message.getRoutingKey(), properties, message.getBody());
                 ack(msgId);
             } else {
-                // First send a message to the coordinator
-
+                //First send a message to the coordinator
                 byte[] body = message.getBody();
                 try {
-                    // TODO: why no log here?
-                    System.out.println("*** Sending task FAILED payload back to coordinator for processing");
                     LGPayload payload = LGPayload.deserialize(body);
                     String taskId = payload.getTaskId();
-                    System.out.println("*** FAILED TaskId:"+taskId);
+                    String jobId = payload.getJobId();
+                    log.info("*** Sending task FAILED payload back to coordinator for processing. " +
+                            "FAILED TaskId:"+taskId+" JobId:"+jobId);
                     payload.setPayloadType(LGConstants.LG_PAYLOAD_TYPE_ADAPTERRESPONSE_FAILURE);
-                    try {
-                        channel.basicPublish("", LGConstants.LEMONGRENADE_COORDINATOR
+                    channel.basicPublish("", LGConstants.LEMONGRENADE_COORDINATOR
                                 , new AMQP.BasicProperties.Builder().priority(LGConstants.QUEUE_PRIORITY_ADAPTER_RESPONSE).build()
                                 , payload.toByteArray());
-                    } catch (IOException e) {
-                        System.out.println("UNABLE TO PUBLISH DEADLETTER FAILURE NOTICE to coordinator queue");
-                    }
-
                 } catch (Exception e) {
+                    log.error("Failed to publish failure response to coordinator.");
                     e.printStackTrace();
                 }
                 deadLetter(msgId); //kill the old message regardless. It will be remade/resent if maxDeliveries isn't met.
             }
-        }
-        catch (Exception e) {
-            System.out.println("Error: Could not retrieve message! for msgID "+msgId.toString()+".");
+        } catch (Exception e) {
+            log.info("Error: Could not retrieve message! for msgID " + msgId.toString() + ".");
+            e.printStackTrace();
         }
         messages.remove(msgId);
     }
-
 
     public void failWithRedelivery(Long msgId) {
         reinitIfNecessary();
@@ -181,10 +176,10 @@ public class RabbitMQConsumer implements Serializable {
             channel.basicReject(msgId, true);
         } catch (ShutdownSignalException sse) {
             reset();
-            logger.error("shutdown signal received while attempting to fail with redelivery", sse);
+            logger.error("Shutdown signal received while attempting to fail with redelivery.", sse);
             reporter.reportError(sse);
         } catch (Exception e) {
-            logger.error("could not fail with redelivery for msgId: " + msgId, e);
+            logger.error("Could not fail with redelivery for msgId: " + msgId, e);
             reporter.reportError(e);
         }
     }
@@ -195,10 +190,10 @@ public class RabbitMQConsumer implements Serializable {
             channel.basicReject(msgId, false);
         } catch (ShutdownSignalException sse) {
             reset();
-            logger.error("shutdown signal received while attempting to fail with no redelivery", sse);
+            logger.error("Shutdown signal received while attempting to fail with no redelivery.", sse);
             reporter.reportError(sse);
         } catch (Exception e) {
-            logger.error("could not fail with dead-lettering (when configured) for msgId: " + msgId, e);
+            logger.error("Could not fail with dead-lettering (when configured) for msgId: " + msgId, e);
             reporter.reportError(e);
         }
     }
@@ -213,12 +208,12 @@ public class RabbitMQConsumer implements Serializable {
             }
             // run any declaration prior to queue consumption
             declarator.execute(channel);
-
             consumer = new QueueingConsumer(channel);
             consumerTag = channel.basicConsume(queueName, isAutoAcking(), consumer);
         } catch (Exception e) {
+            logger.error("Could not open listener on queue:" + queueName +".");
+            e.printStackTrace();
             reset();
-            logger.error("could not open listener on queue " + queueName);
             reporter.reportError(e);
         }
     }
@@ -234,13 +229,24 @@ public class RabbitMQConsumer implements Serializable {
                 channel.close();
             }
         } catch (Exception e) {
-            logger.debug("error closing channel and/or cancelling consumer", e);
+            logger.debug("Error closing channel and/or cancelling consumer.", e);
+            e.printStackTrace();
         }
         try {
-            logger.info("closing connection to rabbitmq: " + connection);
-            connection.close();
+            if(connection != null && connection.isOpen()) {
+                logger.info("Closing connection to RabbitMQ: " + connection);
+                connection.close();
+            }
         } catch (Exception e) {
-            logger.debug("error closing connection", e);
+            logger.debug("Error closing connection.", e);
+            e.printStackTrace();
+        }
+        try {
+            consumer.getChannel().close();
+        }
+        catch(Exception e) {
+            log.error("Error closing RabbitMQ consumer.");
+            e.printStackTrace();
         }
         consumer = null;
         consumerTag = null;
@@ -259,24 +265,18 @@ public class RabbitMQConsumer implements Serializable {
         }
     }
 
-    private Connection createConnection() throws IOException {
-        Connection connection = null;
-        try {
-            connection = highAvailabilityHosts == null || highAvailabilityHosts.length == 0
-                    ? connectionFactory.newConnection()
-                    : connectionFactory.newConnection(highAvailabilityHosts);
-        } catch (TimeoutException e) {
-            e.printStackTrace();
-        }
-        connection.addShutdownListener(new ShutdownListener() {
-            @Override
-            public void shutdownCompleted(ShutdownSignalException cause) {
-                logger.error("shutdown signal received", cause);
-                reporter.reportError(cause);
-                reset();
-            }
+    private Connection createConnection() throws IOException, TimeoutException {
+        Connection connection = highAvailabilityHosts == null || highAvailabilityHosts.length == 0
+                ? connectionFactory.newConnection()
+                : connectionFactory.newConnection(highAvailabilityHosts);
+
+        connection.addShutdownListener(cause -> {
+            logger.error("Shutdown signal received", cause);
+            reporter.reportError(cause);
+            reset();
         });
-        logger.info("connected to rabbitmq: " + connection + " for " + queueName);
+
+        logger.info("Connected to rabbitmq: " + connection + " for " + queueName);
         return connection;
     }
 }

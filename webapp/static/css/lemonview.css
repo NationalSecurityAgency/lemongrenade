@@ -1,0 +1,46 @@
+body {
+    padding-top: 50px;
+}
+
+.panel-default > .panel-heading-custom {
+    background: #577492; color: #fff;
+}
+
+.starter-template { 
+    padding: 40px 15px;
+    text-align: center;
+}
+
+.label-as-badge {
+    border-radius: 1em;
+}
+
+.navbar-fixed-top {
+    top:0px;
+}
+
+.table thead th {
+    background-color: #778899;
+}
+    
+/* Tble fixed */
+.table-fixed thead {
+    width: 100%;
+}
+.table-fixed tbody {
+    height: 230px;
+    overflow-y: auto;
+    width: 100%;
+}
+.table-fixed thead, .table-fixed tbody, .table-fixed tr, .table-fixed td, .table-fixed th {
+    display: block;
+}
+.table-fixed tbody td, .table-fixed thead > tr> th {
+    float: left;
+    border-bottom-width: 0;
+}
+
+.indent-checkbox {
+    margin-left: 25px; 
+}
+

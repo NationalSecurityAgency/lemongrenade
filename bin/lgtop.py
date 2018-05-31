@@ -17,6 +17,10 @@ import datetime
 import requests 
 from datetime import datetime
 
+from time import gmtime, strftime
+
+
+
 class LemonGrenadeTop(object):
 
     def __init__(self, server):
@@ -24,9 +28,10 @@ class LemonGrenadeTop(object):
         self.screen = curses.initscr()
         self.curr_topline = 0
         self.jobs = []
-        self.sortOn = 'status'
+        self.sortOn = 'starttime'
         self.sortOrder= True
         self.padding = 2
+        self.currentTime= strftime("%b %d,%Y %H:%M:%S")
 
     def top(self):
         self.curr_topline = 0
@@ -37,7 +42,10 @@ class LemonGrenadeTop(object):
 
     def sortBy(self,field):
         self.sortOn = field
-        self.jobs = sorted(self.jobs, key=itemgetter(field),reverse=self.sortOrder)
+        sortfield = field
+        if field == 'starttime':
+            sortfield='utime_starttime';
+        self.jobs = sorted(self.jobs, key=itemgetter(sortfield),reverse=self.sortOrder)
 
     def load(self):
         self.height,self.width = self.screen.getmaxyx()
@@ -51,14 +59,26 @@ class LemonGrenadeTop(object):
             job['job_id'] = str(rawjobs[j]['job_id'])
             job['status'] = rawjobs[j]['status']
             job['starttime'] = rawjobs[j]['starttime']
+            job['utime_starttime'] = datetime.strptime(job['starttime']+"","%b %d,%Y %H:%M:%S")
             job['endtime'] = rawjobs[j]['endtime']
             job['graph_activity'] = rawjobs[j]['graph_activity']
             job['task_count'] = rawjobs[j]['task_count']
             job['active_task_count'] = rawjobs[j]['active_task_count']
             job['error_count'] = rawjobs[j]['error_count']
+            job['job_config'] = rawjobs[j]['job_config']
+            job['user'] = "unknown"
+
+            job_config = rawjobs[j]['job_config']
+            if 'roles' in job['job_config']:
+                roles = job['job_config']['roles']
+                for r in roles:
+                    if roles[r]['owner']:
+                        user = r[3:20]
+                        job['user'] = user
             self.jobs.append(job)
 
     def draw(self):
+        self.currentTime= strftime("%b %d,%Y %H:%M:%S")
         self.height,self.width = self.screen.getmaxyx()
         self.max_display_jobs = self.height - self.padding
         self.screen.clear()
@@ -74,13 +94,14 @@ class LemonGrenadeTop(object):
         direction = "Descending"
         if not self.sortOrder:
             direction = "Ascending"
-        self.screen.addstr(0,0,"LEMONGRENADE                                                             [Displaying "+str(endJob)+" jobs] [sort:"+self.sortOn+" "+direction+"]")
+        self.screen.addstr(0,0,"LEMONGRENADE                                          [Displaying "+str(endJob)+" jobs] [sort:"+self.sortOn+" "+direction+"]  Time: "+self.currentTime)
         self.screen.addstr(1,0,"              Job ID                    ", curses.A_REVERSE)
         self.screen.addstr(1,40," Status       ", curses.A_REVERSE)
         self.screen.addstr(1,54," Graph       ", curses.A_REVERSE)
-        self.screen.addstr(1,67," Active/Total         ", curses.A_REVERSE)
-        self.screen.addstr(1,86," Errors      ", curses.A_REVERSE)
-        self.screen.addstr(1,98,"  RunTime    ", curses.A_REVERSE)
+        self.screen.addstr(1,62," Tasks         ", curses.A_REVERSE)
+        self.screen.addstr(1,72," Errors      ", curses.A_REVERSE)
+        self.screen.addstr(1,78," RunTime     ", curses.A_REVERSE)
+        self.screen.addstr(1,90," User                 ", curses.A_REVERSE)
         self.screen.addstr(1,110,"  Start Time        ", curses.A_REVERSE)
  
         # ---- Job List -----
@@ -102,14 +123,15 @@ class LemonGrenadeTop(object):
                     self.screen.addstr(line, 40, str(job['status']), curses.A_REVERSE)
                 elif (job['status'] == 'FINISHED_WITH_ERRORS'):
                     self.screen.addstr(line, 40, 'FINISHED_ERR', curses.A_REVERSE)
-
                 else:
                     self.screen.addstr(line, 40, str(job['status']))
                 self.screen.addstr(line, 55, str(job['graph_activity']))
-                self.screen.addstr(line, 70, str(job['active_task_count'])+"/"+str(job['task_count']))
-                self.screen.addstr(line, 90, str(job['error_count']))
-                self.screen.addstr(line, 100, str(runtime))
+                self.screen.addstr(line, 65, str(job['active_task_count'])+"/"+str(job['task_count']))
+                self.screen.addstr(line, 75, str(job['error_count']))
+                self.screen.addstr(line, 82, str(runtime))
+                self.screen.addstr(line, 90, job['user'])
                 self.screen.addstr(line, 110, str(job['starttime']))
+
                 line += 1
         self.screen.addstr(self.height-1,0, "                   (q)uit  (Space)Refresh  Sort [(s)tatus (g)raphsize (c)reate (J)ob (-)Order ]                                   ", curses.A_REVERSE)
         self.screen.refresh()

@@ -1,26 +1,29 @@
 package lemongrenade.core.database.lemongraph;
 
+import lemongrenade.core.database.lemongraph.InvalidGraphException;
+import lemongrenade.core.database.lemongraph.LemonGraph;
+import lemongrenade.core.database.lemongraph.LemonGraphObject;
+import lemongrenade.core.database.lemongraph.LemonGraphResponse;
+import lemongrenade.core.models.LGPayload;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.junit.*;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.UUID;
-import static org.junit.Assert.assertTrue;
+
 import static org.junit.Assert.*;
-import static org.junit.Assert.fail;
 
 /**
  *  Note: Probably leave this test out of the testSuite because these tests fail if
- *  LemonGraph.Server is not running
+ *  LemonGraph.Server is not running.
+ *  This test moved to api module to prevent circular dependency as it nows uses API to delete
+ *  test jobs after running.
  */
 public class LemonGraphTest {
-
     private final Logger log = LoggerFactory.getLogger(getClass());
     private LemonGraph lg;
     boolean isDatabaseUp = false;
@@ -52,6 +55,59 @@ public class LemonGraphTest {
         fail("Never caught exception for invalid graph: " + graphId);
     }
 
+    @Test
+    public void testPost() throws Exception {
+        JSONObject meta = new JSONObject()
+                .put("test", new JSONArray().put("item1").put("item2"))
+                ;
+        String id = LemonGraph.createGraph(meta);
+        assert id.length() > 0;
+        JSONArray nodes = new JSONArray()
+                .put(
+                new JSONObject()
+                        .put("type","type")
+                        .put("value", new JSONArray().put("test1").put("test2"))
+                        .put("other", new JSONArray().put("test1").put("test2"))
+                )
+                ;
+        JSONArray edges = new JSONArray();
+        LemonGraphObject graph = new LemonGraphObject(true, meta, nodes, edges);
+        LemonGraph.postToGraph(id, graph);
+        lg.deleteGraph(id);
+    }
+
+    @Test
+    public void testNewPost() throws Exception {
+        JSONObject meta = new JSONObject()
+                .put("test", new JSONArray().put("item1").put("item2"))
+                ;
+        String jobId = LemonGraph.createGraph(meta);
+        lg.deleteGraph(jobId);
+        JSONObject job_config = new JSONObject()
+                .put("job_id", jobId)
+                ;
+        LGPayload payload = new LGPayload(job_config);
+        jobId = payload.getJobId();
+        JSONArray nodes = new JSONArray()
+                .put(
+                        new JSONObject()
+                                .put("type","type")
+                                .put("value", new JSONArray().put("test1").put("test2"))
+                                .put("other", new JSONArray().put("test1").put("test2"))
+                )
+                ;
+        payload.addResponseNodes(nodes);
+        String newJobId = LemonGraph.createGraph(jobId, meta);
+        assert jobId.equals(newJobId);
+        JSONObject job = LemonGraph.getGraph(jobId);
+        lg.deleteGraph(jobId);
+    }
+
+    @Test
+    public void testDelete() throws InvalidGraphException {
+        LemonGraph.deleteGraph("");
+    }
+
     /** */
     @Test
     public void testCreateGraph() {
@@ -59,7 +115,7 @@ public class LemonGraphTest {
         try {
             JSONObject meta = new JSONObject();
             meta.put("orig_meta", 4);
-            graphId =lg.createGraph(meta);
+            graphId = lg.createGraph(meta);
         }
         catch (Exception e) {
             fail("Unable to create new graph in LEMONGRAPH");
@@ -98,7 +154,6 @@ public class LemonGraphTest {
         }
     }
 
-    /** */
     @Test
     public void testPostToGraph() {
 
@@ -139,13 +194,20 @@ public class LemonGraphTest {
         LemonGraphResponse lgr2 = null;
         try {
             lgr2 = lg.postToGraph(graphId, lgo);
-            assertEquals(9, lgr2.getMaxId());
+            assertEquals(8, lgr2.getMaxId());
             assertEquals(8, lgr2.getUpdateCount());
             assertEquals(true, lgr2.didCallSucceed());
             assertEquals(204, lgr2.getResponseCode());
         }
         catch(InvalidGraphException e) {
             fail("Can't lookup graph id "+graphId);
+        }
+
+        // Delete Graph
+        try {
+            lg.deleteGraph(graphId);
+        } catch (Exception e) {
+            System.out.println("Delete failed message: " + e.getMessage());
         }
     }
 }

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="lemonviewApp">
+<head>
+ <meta charset="utf-8">
+ <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+ <meta name="description" content="">
+ <meta name="author" content="">
+ <link rel="icon" href="imgs/favicon.ico">
+ <title>LEMONGRENADE</title>
+ <link href="font-awesome/css/font-awesome.min.css" rel="stylesheet">
+ <link href="css/bootstrap.min.css" rel="stylesheet">
+ <link href="css/angular-chart.css" rel="stylesheet">
+ <link href="css/lemonview.css" rel="stylesheet">
+</head>
+<body ng-controller="infoController" >
+
+<!-- Nav Bar -->
+<nav class="navbar navbar-inverse navbar-fixed-top">
+  <div class="container">
+    <div class="navbar-header">
+	<img style="height:50px;width=100px;" align="left" src="imgs/lemongrenade_vertical2.png"><a class="navbar-brand" href="/#/">LemonGrenade</a> 
+    </div>
+    <div id="navbar" class="collapse navbar-collapse">
+      <ul class="nav navbar-nav">
+	<li><a href="/#/"><i class="glyphicon glyphicon-home"></i> Home</a></li>
+	<li><a href="/#/metrics"><i class="glyphicon glyphicon-stats"></i> Metrics</a></li>
+	<li><a href="/#/jobs"><i class="glyphicon glyphicon-cog"></i> Jobs</a></li>
+	<li><a href="/#/adapters"><i class="glyphicon glyphicon-time"></i> Adapters</a></li>
+      </ul>
+      <div class="navbar-text pull-right" style="margin:0px"> 
+	<span ng-if="connected == true" class="label label-success">Server UP</span> 
+	<span ng-if="connected == false" class="label label-danger">:( Server DOWN</span>  
+	{{ configdata.config.server }}
+      </div>
+    </div> 
+  </div> 
+</nav>
+
+<!--Main content-->
+<div class="container">
+  <br/>
+  <div id="main">
+    <!-- Angular template here -->
+    <div ng-view></div>
+
+  </div>
+</div> 
+<!-- Footer -->
+
+<script type='text/javascript' src="js/jquery-2.1.4.min.js"></script>
+<script type='text/javascript' src="js/angular.min.js"></script>
+<script type='text/javascript' src="js/angular-route.min.js"></script>
+<script type='text/javascript' src="js/angular-resource.min.js"></script>
+<script type='text/javascript' src="js/bootstrap.min.js"></script>
+<script type='text/javascript' src="js/Chart.min.js"></script>
+<script type='text/javascript' src="js/angular-chart.min.js"></script>
+<script type='text/javascript' src="js/lemonview.js"></script>
+<script type='text/javascript'>
+$(document).ready(function() {
+  }); 
+</script>
+<br>
+</body>
+</html>
+
+

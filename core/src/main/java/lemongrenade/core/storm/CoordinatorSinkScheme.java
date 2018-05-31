@@ -9,4 +9,9 @@ public class CoordinatorSinkScheme extends AdapterSinkScheme {
     protected String determineExchangeName(Tuple tuple) {
         return LGConstants.LEMONGRENADE_COORDINATOR;
     }
+
+    @Override
+    protected String determineRoutingKey(Tuple tuple) {
+        return LGConstants.LEMONGRENADE_COORDINATOR;
+    }
 }

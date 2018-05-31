@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">  
+    <script src="/js/jquery-2.1.4.min.js"></script>
+    <script src="/js/jquery-ui.min.js"></script>
+    <script src="/js/jQSlidermin.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="d3.js"></script>
+    <title>Job Viewer</title>
+    <link rel="stylesheet" type="text/css" media="all" href="/css/bootstrap.min.css" >
+    <link rel="stylesheet" type="text/css" media="all" href="/font-awexome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" media="all" href="graphstyle.css"/>
+    <link href="/css/lemonview.css" rel="stylesheet">
+    <link href="classic.css" rel="stylesheet">
+</head>
+<body>
+<!-- Nav Bar -->
+<nav class="navbar navbar-inverse navbar-fixed-top">
+  <div class="container">
+    <div class="navbar-header">
+      <img style="height:50px;width=100px;" align="left" src="/imgs/lemongrenade_vertical2.png"><a class="navbar-brand" href="/#/">LemonGrenade</a>    </div>
+    <div id="navbar" class="collapse navbar-collapse">
+      <ul class="nav navbar-nav">
+	<li><a href="/#/jobs"><button class="btn btn-primary"><i class="glyphicon glyphicon-arrow-left"></i> Return To Jobs Page</button></a>
+      </ul>
+    </div> 
+  </div> 
+</nav>
+
+<div class="container">
+<h3>Job:<span id="jobid"></span></h3> 
+<h4>[CreatedOn:<span id="createtime"></span> Tasks:<span id="task_count"></span>]</h4>
+</div>
+
+<div id="graph"></div>
+
+
+
+<script>
+var uuid = window.location.search.substr(1);
+var taskcount = 0;
+var start = 1;
+var stop  = 50;
+var tasks = [];
+var graphIds = [];
+var ignorefirst = true;
+
+document.getElementById('jobid').innerHTML = uuid;
+
+
+$.ajax({url: "/api/job/"+uuid+"/full", success: function(result) {
+     starttime= result.starttime;
+     taskcount= result.task_count;
+     tasks    = result.tasks;
+     
+     document.getElementById('task_count').innerHTML = taskcount;
+     document.getElementById('createtime').innerHTML = starttime;
+
+     // Update Slider
+     $("#slider").rangeSlider({bounds:{ max: taskcount}, valueLabels: "change", arrows:false, step:1});
+
+     console.log(result.history);
+     count = 1;
+     var history = result.history;
+     for (var i in history) {
+         var id = history[i].task_id;
+         var gid = history[i].graph_max_id;
+         graphIds[count] = gid;
+         count++;
+         console.log(" --->"+id+" "+gid);
+     }
+}});
+
+
+function dragstarted(d) {
+  d3.event.sourceEvent.stopPropagation();
+  d3.select(this).classed("dragging", true);
+}
+
+function dragged(d) {
+  d3.select(this).attr("cx", d.x = d3.event.x).attr("cy", d.y = d3.event.y);
+}
+
+function dragended(d) {
+  d3.select(this).classed("dragging", false);
+}
+
+var width = 300, height = 280;
+
+var color = d3.scale.category20();
+
+var force = d3.layout.force()
+  .size([width, height]);
+
+force.drag()
+  .origin(function(d) { return d; })
+  .on("dragstart", dragstarted)
+  .on("drag", dragged)
+  .on("dragend", dragended);
+
+
+var svg = d3.select("#graph").append("svg")
+  .attr("preserveAspectRatio", "xMinYMin meet")
+  .attr("viewBox", "0 0 " + width + " " + height)
+  .classed("svg-content-responsive", true)
+  .call(d3.behavior.zoom().scaleExtent([0.25, 8]).on("zoom", function () {
+    svg.attr("transform", "translate(" + d3.event.translate + ")" + " scale(" + d3.event.scale + ")")
+  }))
+  .on("dblclick.zoom", null)
+  .append("g");
+
+
+
+function sortObject(obj) {
+  if(typeof obj !== 'object')
+    return obj
+  var tmp = {};
+  var keys = [];
+  for(var key in obj)
+    keys.push(key);
+  keys.sort();
+  for(var index in keys)
+    tmp[keys[index]] = sortObject(obj[keys[index]]);       
+  return tmp;
+}
+
+/*d3.json("/api/job/"+uuid+"/graph/d3/"+start+"/"+stop , function(error, graph) {*/
+d3.json("/api/job/"+uuid+"/graph/d3/", function(error, graph) {
+  if (error) {
+    str = JSON.stringify(error, null, 4);
+    console.log("Error"+str)
+    throw error;
+   }
+
+  force
+    .nodes(graph.nodes)
+    .links(graph.edges)
+    .start();
+
+  var link = svg.selectAll(".link")
+    .data(graph.edges)
+    .enter().append("line")
+    .attr("class", "link");
+
+  link.append("title")
+    .text(function(d) { return JSON.stringify(sortObject(d.data), null, 2); });
+
+  var node = svg.selectAll(".node")
+    .data(graph.nodes)
+    .enter().append("circle")
+    .attr("class", "node")
+    .attr("r", 5)
+    .style("fill", function(d) { return color(d.data.type); })
+    .call(force.drag);
+
+  node.append("title")
+    .text(function(d) { return JSON.stringify(sortObject(d.data), null, 2); });
+
+  force.on("tick", function() {
+    link.attr("x1", function(d) { return d.source.x; })
+      .attr("y1", function(d) { return d.source.y; })
+      .attr("x2", function(d) { return d.target.x; })
+      .attr("y2", function(d) { return d.target.y; });
+
+    node.attr("cx", function(d) { return d.x; })
+      .attr("cy", function(d) { return d.y; });
+  });
+});
+
+
+</script>
+
+
+</body>
+</html>

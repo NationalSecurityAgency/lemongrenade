@@ -10,40 +10,57 @@ import org.slf4j.LoggerFactory;
 
 public class MorphiaService {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
-    private Morphia morphia;
-    private Datastore datastore;
+    static private final Logger log = LoggerFactory.getLogger(MorphiaService.class);
+    static private Morphia morphia;
+    static private Datastore datastore;
+    static private MongoClient mongoClient;
 
-    public MorphiaService(){
-        String connectString = LGProperties.get("database.mongo.hostname")+":"+ LGProperties.get("database.mongo.port");
-        log.info("Mongo connection :"+connectString);
-        MongoClient mongoClient = new MongoClient(connectString);
-        mongoClient.setWriteConcern(WriteConcern.JOURNALED);
-        this.morphia = new Morphia();
-        String databaseName = LGProperties.get("database.mongo.databasename");
-        if (databaseName == null) {
-            databaseName = "lemongrenade_develop";
-            log.error("Invalid database name is in properties file. Defaulting to "+databaseName);
+    static {
+        //Init all private variables
+        morphia = new Morphia();
+        open();
+    }
+
+    //Close the client then null client/datastore if close hasn't already been called
+    public void close () {
+        if(mongoClient != null) {
+            mongoClient.close();
+            mongoClient = null;
+            datastore = null;
         }
-        this.datastore = morphia.createDatastore(mongoClient, databaseName);
-        //this.datastore.setDefaultWriteConcern(WriteConcern.ACKNOWLEDGED);
-        this.datastore.setDefaultWriteConcern(WriteConcern.JOURNALED);
     }
 
+    //Open the connection if datastore or mongoClient is null
+    public static void open() {
+        if(mongoClient == null || datastore == null) {
+            String connectString = LGProperties.get("database.mongo.hostname") + ":" + LGProperties.get("database.mongo.port");
+            log.info("Mongo connection :" + connectString);
+            mongoClient = new MongoClient(connectString);
+            mongoClient.setWriteConcern(WriteConcern.JOURNALED);
 
-    public Morphia getMorphia() {
-        return morphia;
+            String databaseName = LGProperties.get("database.mongo.databasename");
+            if (databaseName == null) {
+                databaseName = "lemongrenade_develop";
+                log.error("Invalid database name is in properties file. Defaulting to " + databaseName);
+            }
+
+            datastore = morphia.createDatastore(mongoClient, databaseName);
+            //this.datastore.setDefaultWriteConcern(WriteConcern.ACKNOWLEDGED);
+            datastore.setDefaultWriteConcern(WriteConcern.JOURNALED);
+        }
     }
 
-    public void setMorphia(Morphia morphia) {
-        this.morphia = morphia;
+    //Open the connection when declaring a new MorphiaService
+    public MorphiaService(){
+        open();
     }
 
-    public Datastore getDatastore() {
-        return datastore;
-    }
+    public Morphia getMorphia() {return morphia;}
 
-    public void setDatastore(Datastore datastore) {
-        this.datastore = datastore;
-    }
+    public void setMorphia(Morphia morphia) {this.morphia = morphia;}
+
+    public Datastore getDatastore() {return datastore;}
+
+    public void setDatastore(Datastore datastore) {this.datastore = datastore;}
+
 }

@@ -1,0 +1,8 @@
+{
+  "cert_keystore": "/full/path/my.keystore",
+  "cert_keystore_pass":"changeit",
+  "cert_keystore_type":"jks",
+  "cert_truststore": "/full/path/my.truststore",
+  "cert_truststore_pass": "changeit",
+  "cert_truststore_type": "jks"
+}

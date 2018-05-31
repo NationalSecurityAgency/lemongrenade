@@ -24,7 +24,6 @@ public class HelloWorldAdapter extends LGJavaAdapter {
         // THis is only when you want to test adapter critically failing
         //String causeJSONException  = this.getJobConfig(input).getString("somethingyouknowdoesntexist");
 
-
         try {
             for(int i = 0; i < requests.size(); i++) {
                 request = requests.get(i);
@@ -36,6 +35,7 @@ public class HelloWorldAdapter extends LGJavaAdapter {
                 input.addResponseNode(request);
             }
             //throw new Exception();
+            log.info("HelloWorld Success!");
             callback.emit(input);
         }
         catch (Exception e) {
@@ -53,6 +53,7 @@ public class HelloWorldAdapter extends LGJavaAdapter {
     public HashMap<String, String> getRequiredAttributes() {
         HashMap<String, String> temp = new HashMap<String, String>();
         temp.put("status", ".*");
+        temp.put("status2", ".*");
         return temp;
     }
 

@@ -12,15 +12,13 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.UUID;
 
 public class JobManagerTest extends TestCase {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    @Test
-    public void testJobCreateandDelete() {
+    @Test public void testJobCreateandDelete() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -33,9 +31,7 @@ public class JobManagerTest extends TestCase {
         assertFalse(jm.doesJobExist(job.getJobId()));
     }
 
-
-    @Test
-    public void testJobDeleteOnProcessingJob() {
+    @Test public void testJobDeleteOnProcessingJob() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -61,10 +57,7 @@ public class JobManagerTest extends TestCase {
         assertFalse(jm.doesJobExist(job.getJobId()));
     }
 
-
-
-    @Test
-    public void testJobIsFinishedWhenTaskFails() {
+    @Test public void testJobIsFinishedWhenTaskFails() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -72,21 +65,21 @@ public class JobManagerTest extends TestCase {
         jm.addJob(job);
         assertTrue(jm.doesJobExist(job));
 
-        LGTask lgtask = new LGTask(job,"0001","adpater1",1);
+        LGTask lgtask = new LGTask(job,"0001","adpater1",1, "",0,0,0);
         jm.addTaskToJob(job,lgtask);
 
         boolean isSet = jm.setStatus(job,job.STATUS_PROCESSING);
         assertTrue(isSet);
 
         // Job shouldn't be finished because task is not completed
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         assertTrue(job.getStatus() == job.STATUS_PROCESSING);
         assertEquals(job.getActiveTaskCount(),1);
         assertEquals(job.getTaskCount(),1);
 
-        jm.updateJobTaskStatus(job.getJobId(),lgtask.getTaskId(), LGTask.TASK_STATUS_FAILED);
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobTaskStatus(job,lgtask.getTaskId(), LGTask.TASK_STATUS_FAILED);
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         assertFalse(job.getStatus() == job.STATUS_FINISHED);
         assertTrue(job.getStatus() == job.STATUS_FINISHED_WITH_ERRORS);
@@ -94,9 +87,9 @@ public class JobManagerTest extends TestCase {
         assertEquals(job.getTaskCount(),1);
 
         // Now add another task
-        LGTask lgtask2 = new LGTask(job,"0001","adapter2",2);
+        LGTask lgtask2 = new LGTask(job,"0001","adapter2",2,"",0,0,0);
         jm.addTaskToJob(job,lgtask2);
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         System.out.println(job.toString());
         System.out.println("Job Status is now :"+job.getStatusString(job.getStatus()));
@@ -105,8 +98,8 @@ public class JobManagerTest extends TestCase {
         assertFalse(job.getStatus() == job.STATUS_FINISHED);
 
         // Now complete task2
-        jm.updateJobTaskStatus(job.getJobId(),lgtask2.getTaskId(), LGTask.TASK_STATUS_COMPLETE);
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobTaskStatus(job,lgtask2.getTaskId(), LGTask.TASK_STATUS_COMPLETE);
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         assertFalse(job.getStatus() == job.STATUS_FINISHED);
         assertTrue(job.getStatus() == job.STATUS_FINISHED_WITH_ERRORS);
@@ -119,8 +112,8 @@ public class JobManagerTest extends TestCase {
         assertFalse(jm.doesJobExist(job.getJobId()));
         assertEquals(null,jm.getTask(lgtask.getTaskId()));
     }
-    @Test
-    public void testJobIsFinished() {
+
+    @Test public void testJobIsFinished() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -128,21 +121,21 @@ public class JobManagerTest extends TestCase {
         jm.addJob(job);
         assertTrue(jm.doesJobExist(job));
 
-        LGTask lgtask = new LGTask(job,"0001","adapter1",1);
+        LGTask lgtask = new LGTask(job,"0001","adapter1",1,"",0,0,0);
         jm.addTaskToJob(job,lgtask);
 
         boolean isSet = jm.setStatus(job,job.STATUS_PROCESSING);
         assertTrue(isSet);
 
         // Job shouldn't be finished becuse task is not ocmpleted
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         assertTrue(job.getStatus() == job.STATUS_PROCESSING);
         assertEquals(job.getActiveTaskCount(),1);
         assertEquals(job.getTaskCount(),1);
 
-        jm.updateJobTaskStatus(job.getJobId(),lgtask.getTaskId(), LGTask.TASK_STATUS_COMPLETE);
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobTaskStatus(job,lgtask.getTaskId(), LGTask.TASK_STATUS_COMPLETE);
+        jm.updateJobIfFinished(job);
         job = jm.getJob(job.getJobId());
         assertTrue(job.getStatus() == job.STATUS_FINISHED);
         assertEquals(job.getActiveTaskCount(),0);
@@ -153,8 +146,7 @@ public class JobManagerTest extends TestCase {
         assertEquals(null,jm.getTask(lgtask.getTaskId()));
     }
 
-    @Test
-    public void testAddTaskRemoveTask() {
+    @Test public void testAddTaskRemoveTask() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -164,9 +156,9 @@ public class JobManagerTest extends TestCase {
         boolean isSet = jm.setStatus(job,job.STATUS_PROCESSING);
         assertTrue(isSet);
 
-        LGTask lgt = new LGTask(job,"adapter1","adaptername",1);
+        LGTask lgt = new LGTask(job,"adapter1","adaptername",1,"",0,0,0);
         jm.addTaskToJob(job,lgt);
-        jm.checkIfJobFinished(job.getJobId());
+        jm.updateJobIfFinished(job);
 
         boolean checkStatus = jm.setStatus(job,job.STATUS_PROCESSING);
         assertTrue(checkStatus);
@@ -183,19 +175,18 @@ public class JobManagerTest extends TestCase {
         LGJob jremoved = jm.getJob(job.getJobId());
         assertEquals(jremoved.getTaskCount(),0);
 
-        // THis should set the status to FINISHED
-        jm.checkIfJobFinished(job.getJobId());
+        // This should set the status to FINISHED
+        jm.setJobFinished(job);
 
         job = jm.getJob(job.getJobId());
-        assertTrue(job.getStatus() == job.STATUS_FINISHED);
+        int status = job.getStatus();
+        assertTrue(status == job.STATUS_FINISHED);
 
         jm.deleteJob(job);
         assertFalse(jm.doesJobExist(job.getJobId()));
     }
 
-
-    @Test
-    public void testJobConfig() {
+    @Test public void testJobConfig() {
         JobManager jm = new JobManager();
         MorphiaService ms = new MorphiaService();
         LGJobDAOImpl dao = new LGJobDAOImpl(LGJob.class, ms.getDatastore());
@@ -230,8 +221,7 @@ public class JobManagerTest extends TestCase {
     }
 
     /** Test job EXPIRED */
-    @Test
-    public void testJobTTL() {
+    @Test public void testJobTTL() {
         JobManager jm = new JobManager();
         MorphiaService ms = new MorphiaService();
         LGJobDAOImpl dao = new LGJobDAOImpl(LGJob.class, ms.getDatastore());
@@ -266,9 +256,7 @@ public class JobManagerTest extends TestCase {
 
     }
 
-
-    @Test
-    public void testAddTasks() {
+    @Test public void testAddTasks() {
         JobManager jm = new JobManager();
         JSONObject jobConfig = new JSONObject();
         ArrayList<String> alist = new ArrayList();
@@ -280,30 +268,24 @@ public class JobManagerTest extends TestCase {
 
         int tasks = 10;
         for (int i = 1; i<=tasks; i++) {
-            LGTask lgt = new LGTask(job, "adapter1","name2",1);
+            LGTask lgt = new LGTask(job, "adapter1","name2",1,"",0,0,0);
             jm.addTaskToJob(job, lgt);
         }
 
         LGJob jt1 = jm.getJob(job.getJobId());
         assertEquals(jt1.getTaskCount(),tasks);
 
-        Map<String, LGTask> taskMap = jt1.getTaskMap();
-        for (Map.Entry<String, LGTask> entry : taskMap.entrySet()) {
-            LGTask lgt = entry.getValue();
-            jm.removeTaskFromJob(jt1.getJobId(), lgt.getTaskId());
-        }
-
         // Delete should fail because it's processing
+        System.out.println("1");
         jm.deleteJob(job);
         assertTrue(jm.doesJobExist(job.getJobId()));
 
-        isSet = jm.setStatus(job,job.STATUS_ERROR);
+        isSet = jm.setStatus(job,job.STATUS_FINISHED);
         assertTrue(isSet);
-
+        System.out.println("2");
         // Delete should succeed
         jm.deleteJob(job);
         assertFalse(jm.doesJobExist(job.getJobId()));
 
     }
-
 }

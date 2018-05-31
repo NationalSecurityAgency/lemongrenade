@@ -1,6 +1,16 @@
 package lemongrenade.core.database.lemongraph;
 
+import lemongrenade.core.models.LGJob;
+import lemongrenade.core.models.LGPayload;
+import lemongrenade.core.util.LGConstants;
 import lemongrenade.core.util.LGProperties;
+import lemongrenade.core.util.RequestResult;
+import lemongrenade.core.util.Requests;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
@@ -11,7 +21,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.UnsupportedEncodingException;
+
+import java.io.*;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +33,7 @@ import java.util.List;
  *
  * * {
  *   "nodes":[],
- *   "meta":{"job_id":"b202cca8-f03a-11e5-8ba5-a088b48dbc68", priority:255, enabled:0/1},
+ *   "meta":{"job_id":"b202cca8-f03a-11e5-8ba5-000000000000", priority:255, enabled:0/1},
  *   "edges":[]
  * }
  *
@@ -36,36 +47,52 @@ import java.util.List;
  *
  */
 public class LemonGraph {
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    public final static int NOT_FOUND = 404;
+    private final static Logger log = LoggerFactory.getLogger(LemonGraph.class);
     private final static int RETRY_MAX_ATTEMPT = 5;
     private final static int RETRY_SLEEP_TIME  = 5000;
-    private String restUrl;
-    private HttpClient client;
-    private boolean connected = false;
+    public static String restUrl = LGProperties.get("lemongraph_url");
+    public static HttpClient client;
 
-    public LemonGraph() {
-        restUrl = LGProperties.get("lemongraph_url");
+    static {
         if (!restUrl.endsWith("/")) {
             restUrl += "/";
         }
-        try {
-            client = new HttpClient();
-            client.setConnectBlocking(false);
-            client.start();
-        }
-        catch (Exception e) {
-            log.error("Unable to open client connection to "+restUrl);
+    }
+
+    public LemonGraph() {
+        openConnection();
+    }
+
+    //Opens a connection if one isn't already open
+    public static void openConnection() {
+        if(!isConnected()) {
+            try {
+                client = new HttpClient();
+                client.setConnectBlocking(false);
+                client.start();
+            } catch (Exception e) {
+                log.error("Error:" + e.getLocalizedMessage());
+                log.error("Unable to open client connection to " + restUrl);
+                e.printStackTrace();
+            }
         }
     }
 
-    public boolean isConnected() { return connected; }
+    public static boolean isConnected() {
+        if(client == null) {
+            return false;
+        }
+        return client.isStarted();
+    }
 
     /**
      *  Attempts to gracefully close API connection
      */
-    public void close() {
+    public static void close() {
         try {
-            client.stop();
+            if(client != null)
+                client.stop();
         }
         catch (Exception e) {
             log.error("Unable to close client connection to "+restUrl);
@@ -74,11 +101,11 @@ public class LemonGraph {
     }
 
     /**
-     * returns true if the LemonGraph server is up and running. If it's not, it attempts
+     * Returns true if the LemonGraph server is up and running. If it's not, it attempts
      * to reconnect.. Sleeping RETRY_SLEEP_TIME between RETRY_MAX_ATTEMPT.  Use this
      * before you start doing lemongraph operations.
      */
-    private boolean testConnection() {
+    private static boolean testConnection() {
         if (!isConnected()) {
             String connectLG = LGProperties.get("lemongraph_url");
             int count = 0;
@@ -87,7 +114,6 @@ public class LemonGraph {
                 isApiUp();
                 if (isConnected()) {
                     log.info("Lemongraph is online.");
-                    connected = true;
                 } else {
                     try {
                         log.warn("Sleeping "+count+" of "+RETRY_MAX_ATTEMPT+" between reconnect");
@@ -111,18 +137,16 @@ public class LemonGraph {
      *
      * @return boolean  up or down
      */
-    public boolean isApiUp() {
+    public static boolean isApiUp() {
+        openConnection();
         try {
-            ContentResponse res = client.newRequest(restUrl+"ping/")
-                    .method(HttpMethod.GET)
-                    .send();
-            int status = res.getStatus();
+            String url = restUrl+"ping/";
+            RequestResult result = Requests.get(url);
+            int status = result.status_code;
             log.info("Ping Response ["+status+"]");
-            connected = true;
         }
         catch (Exception e) {
-            log.error("Caught exception in ping "+e.getMessage());
-            connected = false;
+            log.error("Caught exception in ping " + e.getMessage());
             return false;
         }
 
@@ -130,9 +154,66 @@ public class LemonGraph {
         return true;
     }
 
+    /**
+     * Takes multiple patterns and places them into a single LemonGraph query
+     *
+     * @param jobId    - job/graph to parse
+     * @param adapterPatterns  Mash map of "pattern","adapter" to send to LemongRPha
+     * @param startId  - this is the starting id (usually currentGraphId)
+     * @return JSONObject of items
+     */
+    public static JSONObject queryBasedOnPatterns(String jobId, HashMap<String, String> adapterPatterns, int startId) {
+        JSONObject ret = new JSONObject();
+        StringBuilder params = new StringBuilder();
+        adapterPatterns.forEach((adapterId, adapterQuery) -> {
+            try {
+                String encodedAdapterPattern = URLEncoder.encode(adapterQuery, "UTF-8");
+                if (params.length() == 0) {
+                    params.append("q=");
+                } else {
+                    params.append("&q=");
+                }
+                params.append(encodedAdapterPattern);
+            } catch (UnsupportedEncodingException e) {
+                // TODO: throw exception?
+                log.error("Unable to URL Encode exception: " + e.getMessage());
+            }
+        });
 
-    /** takes multiple patterns and places them into a single query */
-    public JSONObject queryBasedOnPatterns(String jobId, HashMap<String,String> adapterPatterns, int lastId) {
+        String url = restUrl + "graph/" + jobId + "?" + params.toString() + "&start=" + startId;
+        try {
+            openConnection();
+            RequestResult result = Requests.get(url);
+            int status = result.status_code;
+            if ((status == 400) || (status == 404)) {
+                log.error("Received error code communicating to lemongraph ("+status+")");
+                return ret;
+            }
+            try {
+                String fixJson = "{ \"data\":"+ result.response_msg + "}";
+                ret = new JSONObject(fixJson);
+            }
+            catch (JSONException e) {
+                log.error("Caught JSON parse exception: "+e.getMessage());
+            }
+        }
+        catch (Exception e) {
+            log.error("Exception trying to communicate to lemongraph: "+e.getMessage());
+            log.info("LEMONGRAPH Query Url:" + url);
+        }
+        return ret;
+    }
+
+    /**
+     * Takes multiple patterns and places them into a single LemonGraph query between startId and stopId
+     *
+     * @param jobId    - job/graph to parse
+     * @param adapterPatterns  Mash map of "pattern","adapter" to send to LemonGraph
+     * @param startId  - this is the starting id (usually currentGraphId)
+     * @param stopId    - this is the starting id (usually currentGraphId)
+     * @return JSONObject
+     */
+    public static JSONObject queryBasedOnPatterns(String jobId, HashMap<String, String> adapterPatterns, int startId, int stopId) {
         JSONObject ret = new JSONObject();
         StringBuilder params = new StringBuilder();
         adapterPatterns.forEach((adapterId,adapterQuery) -> {
@@ -150,16 +231,17 @@ public class LemonGraph {
             }
         });
 
-        String url = restUrl + "graph/" + jobId + "?" + params.toString() + "&start=" + lastId;
+        String url = restUrl + "graph/" + jobId + "?" + params.toString() + "&start=" + startId + "&stop=" + stopId;
         try {
-            ContentResponse res = client.GET(url);
-            int status = res.getStatus();
+            openConnection();
+            RequestResult result = Requests.get(url);
+            int status = result.status_code;
             if ((status == 400) || (status == 404)) {
                 log.error("Received error code communicating to lemongraph ("+status+")");
                 return ret;
             }
             try {
-                String fixJson = "{ \"data\":"+ res.getContentAsString() + "}";
+                String fixJson = "{ \"data\":"+ result.response_msg + "}";
                 ret = new JSONObject(fixJson);
             }
             catch (JSONException e) {
@@ -167,13 +249,20 @@ public class LemonGraph {
             }
         }
         catch (Exception e) {
-            log.error("Exception trying to communicate to lemongraph "+e.getMessage());
+            log.error("Exception trying to communicate to lemongraph: "+e.getMessage());
+            log.info("LEMONGRAPH Query Url:" + url);
         }
         return ret;
     }
 
-    /** Does not append start= to query */
-    public JSONObject queryBasedOnPatterns(String jobId, HashMap<String,String> adapterPatterns) {
+    /**
+     * Takes multiple patterns and places them into a single LemonGraph query.
+     * This method does not take a starting or Ending id, and d oes not append start= to query
+     * @param jobId    - job/graph to parse
+     * @param adapterPatterns  Mash map of "attern","adapter" to send to LemongRPha
+     * @return JSONObject
+     */
+    public static JSONObject queryBasedOnPatterns(String jobId, HashMap<String, String> adapterPatterns) {
         JSONObject ret = new JSONObject();
         StringBuilder params = new StringBuilder();
         adapterPatterns.forEach((adapterId,adapterQuery) -> {
@@ -199,16 +288,16 @@ public class LemonGraph {
         }
 
         String url = restUrl + "graph/" + jobId + "?" + params.toString();
-        // chatty log.info("Lemongraph URL = "+ URLDecoder.decode(url));
         try {
-            ContentResponse res = client.GET(url);
-            int status = res.getStatus();
+            openConnection();
+            RequestResult result = Requests.get(url);
+            int status = result.status_code;
             if ((status == 400) || (status == 404)) {
                 log.error("Received error code communicating to lemongraph ("+status+")");
                 return ret;
             }
             try {
-                String fixJson = "{ \"data\":"+ res.getContentAsString() + "}";
+                String fixJson = "{ \"data\":"+ result.response_msg + "}";
                 ret = new JSONObject(fixJson);
             }
             catch (JSONException e) {
@@ -216,7 +305,8 @@ public class LemonGraph {
             }
         }
         catch (Exception e) {
-            log.error("Exception trying to communicate to lemongraph "+e.getMessage());
+            log.error("Exception trying to communicate to lemongraph: "+e.getMessage());
+            log.info("LEMONGRAPH Query Url:"+url);
         }
         return ret;
     }
@@ -247,7 +337,7 @@ public class LemonGraph {
      * @param resultdata Json data that's returned from a LemonGraph query  {'data': 'lemongraph_raw_result'}
      * @return Hashmap A map of {query, all_results_for_that_query}
      * */
-    public  HashMap parseLemonGraphResult(JSONObject resultdata) {
+    public static HashMap parseLemonGraphResult(JSONObject resultdata) {
         HashMap<String, JSONArray> parseMap = new HashMap<String, JSONArray>();
 
         // If no data field, something went wrong
@@ -272,10 +362,11 @@ public class LemonGraph {
 
         // Look for "queries" index. This is the first part of the result from LemonGraph that lists all the
         // queries that ran and have results. We use this List as an index when parsing the results section.
-        JSONArray queries = new JSONArray();
-        if (data.get(0) instanceof JSONArray) {
+        JSONArray queries;
+        try {
             queries = data.getJSONArray(0);
-        } else {
+        }
+        catch(Exception e) {
             log.error("Missing queries index "+data.toString());
             return parseMap;
         }
@@ -310,38 +401,78 @@ public class LemonGraph {
         return parseMap;
     }
 
-    public JSONObject deleteGraph(String graphId)
-    throws InvalidGraphException
-    {
+    /**
+     * Reset tells LemonGraph to remove all 'learned' data from adapters from the graph but keeps the
+     * initial seed data so the job can be RERAN by a user.
+     *
+     * @param graphId String for graph ID
+     * @return JSONObject
+     * @throws InvalidGraphException thrown when failing to call reset in LemonGraph
+     */
+    public static JSONObject resetGraph(String graphId) throws InvalidGraphException {
         JSONObject ret = new JSONObject();
         try {
+            openConnection();
+            ContentResponse res = client.newRequest(restUrl + "reset/" + graphId)
+                    .method(HttpMethod.PUT)
+                    .send();
+            int status = res.getStatus();
+            ret.put("status", status);
+            ret.put("message", res.getContentAsString());
+        }
+        catch (Exception e) {
+            log.error("Caught exception in reset Graph "+e.getMessage());
+            throw new InvalidGraphException(e.getMessage());
+        }
+        return ret;
+    }
+
+    /**
+     * Deletes the entire graph from the LemonGraph database.
+     *
+     * @param graphId String of graph ID
+     * @return JSONObject
+     * @throws InvalidGraphException thrown when failing to hit LemonGraph graph/
+     */
+    public static JSONObject deleteGraph(String graphId) throws InvalidGraphException {
+        JSONObject ret = new JSONObject();
+        try {
+            openConnection();
             ContentResponse res = client.newRequest(restUrl+"graph/"+graphId)
-                                                 .method(HttpMethod.DELETE)
-                                                 .agent("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0) Gecko/20100101 Firefox/17.0")
-                                                 .send();
-            //int status = res.getStatus();
+                 .method(HttpMethod.DELETE)
+                 .agent("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0) Gecko/20100101 Firefox/17.0")
+                 .send();
+            int status = res.getStatus();
+            ret.put("status", status);
+            ret.put("message", res.getContentAsString());
+            return ret;
         }
         catch (Exception e) {
             log.error("Caught exception in deleteGraph "+e.getMessage());
             throw new InvalidGraphException(e.getMessage());
         }
-        return ret;
+    }
 
+    public static String createGraph(JSONObject meta) throws Exception {
+        return createGraph(null, meta);
     }
 
     /**
      * Looks to see if the graph exists in LemonGraph, If not, it creates it.
      * @param meta is the 'meta' data to store in the graph at create time
      * @return Job UUID as defined by LEMONGRAPH
+     * @throws Exception when failing to connect to LEMONGRAPH or failing to hit createGraph
      **/
-    public String createGraph(JSONObject meta)
-    throws Exception{
+    public static String createGraph(String graphId, JSONObject meta) throws Exception {
+        if(graphId != null && graphId.length() > 0 && graphId.length() != LGJob.JOB_ID_LENGTH) {
+            throw new Exception("Invalid length for graph ID:"+graphId);
+        }
         LemonGraphResponse lgr;
         if (!testConnection()) {
             log.error("Lemongraph is not connected... Error");
             throw new Exception("Unable to connect to LEMONGRAPH. Create Failed.");
         }
-        lgr = createGraphHelper(meta);
+        lgr = createGraphHelper(graphId, meta);
         if (!lgr.getSuccess()) {
             throw new Exception("LEMONGRAPH API call to createGraph Failed!!!");
         }
@@ -355,14 +486,21 @@ public class LemonGraph {
      * @param meta posts the meta data to the graph at create time
      * @return LemonGraphResponse  the result that LemonGraph returns
      * */
-    private LemonGraphResponse createGraphHelper(JSONObject meta) {
+    private static LemonGraphResponse createGraphHelper(String graphId, JSONObject meta) {
         JSONObject metaWrapper = new JSONObject();
         metaWrapper.put("meta",meta);
         metaWrapper.put("seed",true);
         LemonGraphResponse lgr = new LemonGraphResponse();
         ContentResponse res = null;
         try {
-            Request req = client.POST(restUrl + "graph/");
+            openConnection();
+            Request req;
+            if(graphId != null && graphId.length() > 0) { //ensure this is a 'real' graphId
+                req = client.POST(restUrl + "graph/" + graphId + "?create=true");
+            }
+            else {
+                req = client.POST(restUrl + "graph/");
+            }
             req.content(new StringContentProvider(metaWrapper.toString()), "application/json");
             res = req.send();
             lgr.parseContentResponse(res);
@@ -374,15 +512,21 @@ public class LemonGraph {
         return lgr;
     }
 
-    /** */
-    public LemonGraphResponse postToGraph(String graphId, LemonGraphObject graph)
-    throws InvalidGraphException {
-
+    /**
+     * @param graphId String for graph ID
+     * @param graph LemonGraphObject
+     * @return LemonGraphResponse
+     * @throws InvalidGraphException thrown when failing to connect and hit graph/
+     */
+    public static LemonGraphResponse postToGraph(String graphId, LemonGraphObject graph) throws InvalidGraphException {
         LemonGraphResponse lgr = new LemonGraphResponse();
         ContentResponse res = null;
         try {
-            Request req = client.POST(restUrl + "graph/"+graphId);
-            req.content(new StringContentProvider(graph.get().toString()), "application/json");
+            openConnection();
+            String url = restUrl + "graph/" + graphId;
+            Request req = client.POST(url);
+            JSONObject graphContent  = graph.get();
+            req.content(new StringContentProvider(graphContent.toString()), "application/json");
             res = req.send();
             lgr.parseContentResponse(res);   // TODO: check responseCode to be 204?
         }
@@ -393,43 +537,102 @@ public class LemonGraph {
         return lgr;
     }
 
-    public JSONObject getGraph(String jobId)
-    throws InvalidGraphException {
-        JSONObject ret = new JSONObject();
+    /**
+     * Adds the response nodes/edges from LGPayload into LEMONGRAPH.
+     * @param payload LGPayload
+     * @return Returns a LemonGraphResponse
+     * @throws InvalidGraphException
+     */
+    public static LemonGraphResponse postToGraph(LGPayload payload) throws InvalidGraphException {
+        LemonGraphObject lgo = buildLemonGraphFromPayloadNodesandEdges(payload.getResponseNodes(),
+                payload.getResponseEdges());
+        if (payload.getPayloadType().equals(LGConstants.LG_PAYLOAD_TYPE_COMMAND)) {lgo.setSeed(true);}
+        return postToGraph(payload.getJobId(), lgo);
+    }
 
+    public static String getContent(String uri) throws InvalidGraphException {
+            DefaultHttpClient client = new DefaultHttpClient();
+            HttpGet httpGet = new HttpGet(uri);
+            HttpResponse response;
         try {
-            ContentResponse res = client.GET(restUrl + "graph/"+jobId);
-            int status = res.getStatus();
-            if ((status == 400) || (status == 404)) {
-                throw new InvalidGraphException(res.getContentAsString());
+            response = client.execute(httpGet);
+            StatusLine statusLine = response.getStatusLine();
+            int status = statusLine.getStatusCode();
+            StringBuilder builder;
+            HttpEntity entity = response.getEntity();
+            InputStream content = entity.getContent();
+            builder = new StringBuilder();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(content));
+            String line = reader.readLine();
+            while(line != null) {
+                builder.append(line);
+                line = reader.readLine();
             }
-            ret = new JSONObject(res.getContentAsString());
-        }
-        catch (Exception e) {
+            String body = builder.toString();
+            if(status == 400 || status == 404) {
+                client.close();
+                throw new InvalidGraphException(body);
+            }
+            client.close();
+            return body;
+        } catch (IOException e) {
+            e.printStackTrace();
+            client.close();
             throw new InvalidGraphException(e.getMessage());
         }
+    }
+
+    public static JSONObject getGraph(String jobId) throws InvalidGraphException {
+        JSONObject ret;
+        String uri = restUrl + "graph/" + jobId;
+        String body = getContent(uri);
+        ret = new JSONObject(body);
         return ret;
     }
 
-    public JSONObject getGraphCytoscape(String jobId)
-            throws InvalidGraphException {
-        JSONObject ret = new JSONObject();
-        try {
-            ContentResponse res = client.GET(restUrl + "cytoscape/"+jobId);
-            int status = res.getStatus();
-            if ((status == 400) || (status == 404)) {
-                throw new InvalidGraphException(res.getContentAsString());
-            }
-            ret = new JSONObject(res.getContentAsString());
-        }
-        catch (Exception e) {
-            throw new InvalidGraphException(e.getMessage());
-        }
+    public static JSONObject getGraphCytoscape(String jobId) throws InvalidGraphException {
+        JSONObject ret;
+        String uri = restUrl + "cytoscape/"+jobId;
+        String body = getContent(uri);
+        ret = new JSONObject(body);
         return ret;
     }
 
-    /** Build a Lemongraph object based on a payloads response nodes and edges */
-    public LemonGraphObject buildLemonGraphFromPayloadNodesandEdges(List<JSONObject> inNodes, List<JSONArray> inEdges) {
+    /**
+     * @param jobId String for job ID
+     * @return JSONObject
+     * @throws InvalidGraphException thrown when failing to get content
+     */
+    public static JSONObject getGraphD3(String jobId) throws InvalidGraphException {
+        JSONObject ret;
+        String uri = restUrl + "d3/"+jobId;
+        String body = getContent(uri);
+        ret = new JSONObject(body);
+        return ret;
+    }
+
+    /**
+     * @param jobId String for job ID
+     * @param start int
+     * @param stop int
+     * @return JSONObject
+     * @throws InvalidGraphException thrown when failing to get content.
+     */
+    public static JSONObject getGraphD3(String jobId, int start, int stop) throws InvalidGraphException {
+        JSONObject ret;
+        String uri = restUrl + "d3/"+jobId+"?start="+start+"&stop="+stop;
+        String body = getContent(uri);
+        ret = new JSONObject(body);
+        return ret;
+    }
+
+    /**
+     * Build a Lemongraph object based on a payloads response nodes and edges
+     * @param inNodes List of JSONObject of input nodes
+     * @param inEdges List of JSONArray for input edges
+     * @return LemonGraphObject
+     */
+    public static LemonGraphObject buildLemonGraphFromPayloadNodesandEdges(List<JSONObject> inNodes, List<JSONArray> inEdges) {
         JSONArray newNodes = new JSONArray();
         JSONArray newChains= new JSONArray();
 
@@ -446,8 +649,7 @@ public class LemonGraph {
     }
 
     /**
-     *
-     * @param args
+     * @param args Unused. Standard main args.
      */
     public static void main(String[] args) {
         LemonGraph lg = new LemonGraph();
@@ -496,6 +698,13 @@ public class LemonGraph {
         System.out.println("Threads          : "+threadCount);
         System.out.println("Cycles per thread: "+stressCount);
         System.out.println("Done");
+
+        // Delete Graph
+        try {
+            lg.deleteGraph(jobId);
+        } catch (Exception e) {
+            System.out.println("Delete failed message: "+e.getMessage());
+        }
     }
 }
 
