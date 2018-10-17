@@ -11,7 +11,6 @@
     <dependency>
       <groupId>lemongrenade</groupId>
       <artifactId>core</artifactId>
-      <version>${project.version}</version>
       <exclusions>
         <exclusion>
           <groupId>org.apache.storm</groupId>
@@ -19,10 +18,19 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <descriptorRefs>
@@ -45,45 +53,8 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.6.1</version>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>2.0.4</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-            <phase>package</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.3</version>
-        <executions>
-          <execution>
-            <id>attach-javadocs</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
         <executions>
           <execution>
             <id>Version Calculation</id>
@@ -95,8 +66,8 @@
               <executable>ln</executable>
               <arguments>
                 <argument>-fnsv</argument>
-                <argument>target/examples-${project.version}-jar-with-dependencies.jar</argument>
-                <argument>examples-latest-jar-with-dependencies.jar</argument>
+                <argument>target/${project.artifactId}-${project.version}-jar-with-dependencies.jar</argument>
+                <argument>${project.artifactId}-latest-jar-with-dependencies.jar</argument>
               </arguments>
             </configuration>
           </execution>
@@ -114,7 +85,6 @@
         <dependency>
           <groupId>org.apache.storm</groupId>
           <artifactId>storm-core</artifactId>
-          <version>1.0.3</version>
         </dependency>
       </dependencies>
       <build>
@@ -134,7 +104,6 @@
         <dependency>
           <groupId>org.apache.storm</groupId>
           <artifactId>storm-core</artifactId>
-          <version>1.0.3</version>
           <scope>provided</scope>
         </dependency>
       </dependencies>
