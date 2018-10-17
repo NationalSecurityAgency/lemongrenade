@@ -4,14 +4,14 @@
   <parent>
     <groupId>lemongrenade</groupId>
     <artifactId>lemongrenade</artifactId>
-    <version>0.1.46</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
   <artifactId>webapp</artifactId>
   <dependencies>
     <dependency>
       <groupId>lemongrenade</groupId>
       <artifactId>api</artifactId>
-      <version>0.1.46</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.storm</groupId>
