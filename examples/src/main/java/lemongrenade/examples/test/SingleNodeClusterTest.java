@@ -94,7 +94,6 @@ public class SingleNodeClusterTest {
         return input.toString();
     }
 
-    /** */
     public static JSONObject get_default_job_data() {
         JSONObject job_data = new JSONObject()
           .put("status", "new")

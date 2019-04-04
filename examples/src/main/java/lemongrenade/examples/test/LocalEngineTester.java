@@ -32,8 +32,6 @@ public class LocalEngineTester {
 
     /**
      * Checks for the bare essentials configuration items
-     * @param adapterObj
-     * @return
      */
     private static boolean checkAdapterObject(JSONObject adapterObj) {
         boolean result = true;
@@ -123,12 +121,6 @@ public class LocalEngineTester {
     }//end of startAllAdapters
 
 
-    /**
-     *
-     * @param filename
-     * @return
-     * @throws Exception
-     */
     private static String readFile(String filename) throws Exception {
         String result = "";
         try {
@@ -164,11 +156,6 @@ public class LocalEngineTester {
         return result;
     }
 
-    /**
-     *
-     * @param filename
-     * @return
-     */
     private static JSONObject parseTopologyFile(String filename) {
         System.out.println("Parsing topology file :"+filename);
         JSONObject jsonObject = new JSONObject();
@@ -197,7 +184,6 @@ public class LocalEngineTester {
      * Looks for arg lemongrande topology file. If not, looks in the path
      * for a file named 'lemongrenade-topology.json'
      *
-     * @param args
      * @return JSONObject configuration file
      */
     private static JSONObject readLemongrenadeTopologyFile(String[] args) {
@@ -230,9 +216,6 @@ public class LocalEngineTester {
      *    configured adapters. Then it starts the coordinator processes, which
      *    will eventually be part of the topology file as well.
      *
-     *
-     * @param args
-     * @throws Exception
      */
     public static void main(String[] args)
     throws Exception

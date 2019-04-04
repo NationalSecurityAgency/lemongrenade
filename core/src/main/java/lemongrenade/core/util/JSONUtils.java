@@ -14,7 +14,6 @@ public class JSONUtils {
      * Does not recurse in to nested JSON.
      * @param prev - the previous JSON Object
      * @param curr - the current JSON Object
-     * @return
      */
     public static JSONObject diff (JSONObject prev, JSONObject curr){
         JSONObject diff = new JSONObject();
@@ -32,7 +31,6 @@ public class JSONUtils {
         return diff;
     }
 
-    /** */
     public static JSONObject apply(JSONObject json, JSONObject patch){
         JSONObject response = new JSONObject();
         for (String attr: json.keySet()){
@@ -158,7 +156,6 @@ public class JSONUtils {
         return jsonObject;
     }
 
-    /** */
     public static void main(String[] args) throws IOException {
         JSONObject first = new JSONObject()
                 .put("foo", "bar")

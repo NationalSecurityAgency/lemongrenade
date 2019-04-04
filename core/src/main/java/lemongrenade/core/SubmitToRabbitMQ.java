@@ -40,7 +40,6 @@ import java.util.concurrent.TimeoutException;
  *      job = buildJobSubmitObject(alist, jobId);
  *      sendNewJobToCommandController(JSONObject job)
  */
-
 public class SubmitToRabbitMQ {
     private final static Logger log = LoggerFactory.getLogger(SubmitToRabbitMQ.class);
     static private ConnectionFactory factory;
@@ -77,7 +76,7 @@ public class SubmitToRabbitMQ {
 
     /** Closes RabbitMQ connection, COORDINATORCMD channel, and LemonGraph
      * @throws Exception If the connection cannot be closed
-     * */
+     */
     public void close() throws Exception {
         closeChannel(channel);
         closeConnection(connection);
@@ -116,7 +115,7 @@ public class SubmitToRabbitMQ {
      * @param jobId LG job ID to send to
      * @param approvedAdapters List of approved adapter names
      * @param seedPayload LGPayload for seeding a new job
-     * */
+     */
     public void sendAddToJobToCommandController(String jobId, ArrayList<String> approvedAdapters, LGPayload seedPayload) throws Exception {
         openConnections();
         int ttl = 0;
@@ -249,7 +248,6 @@ public class SubmitToRabbitMQ {
         return job;
     }
 
-    /** */
     private String readFile(String filename)
     throws Exception {
         String result;
@@ -268,7 +266,6 @@ public class SubmitToRabbitMQ {
         return result;
     }
 
-    /** */
     private JSONObject parseJobFile(String filename) {
         System.out.println("Parsing job file :"+filename);
         JSONObject jsonObject = new JSONObject();
@@ -283,7 +280,6 @@ public class SubmitToRabbitMQ {
         return jsonObject;
     }
 
-    /** */
     public  JSONObject readJobFromJsonFile(String jobFile) {
         File f = new File(jobFile);
         if(f.exists()) {
@@ -330,7 +326,6 @@ public class SubmitToRabbitMQ {
         return(job);
     }
 
-    /** */
     public void cancelAllActiveJobs() throws Exception {
         JobManager jb = new JobManager();
         List<LGJob> activeJobs = jb.getAllActive();
@@ -340,7 +335,6 @@ public class SubmitToRabbitMQ {
         }
     }
 
-    /** */
     public void sendCancel(String jobId) throws Exception {
         openConnections();
         ArrayList approvedAdapters = new ArrayList<String>();
@@ -351,7 +345,6 @@ public class SubmitToRabbitMQ {
                 , cmd.toByteArray());
     }
 
-    /** */
     public void printSubmitJobUsage() {
         System.out.println("");
         System.out.println(" SubmitToRabbitMQ:");
@@ -369,7 +362,6 @@ public class SubmitToRabbitMQ {
         System.exit(0);
     }
 
-    /** */
     public void printCancelJobUsage() {
         System.out.println("");
         System.out.println(" Cancel Job:");
@@ -390,7 +382,6 @@ public class SubmitToRabbitMQ {
      * --jobfile |jobfile|  Submits a job via a json file
      * --testjob             Submits a test job
      * --testjobadapters adapter1 adapter2  Submits a test job to specified adapters
-     * @throws Exception
      */
     public static void main(String[] args) throws Exception {
         Options options;

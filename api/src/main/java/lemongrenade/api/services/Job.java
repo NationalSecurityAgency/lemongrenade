@@ -26,7 +26,6 @@ import java.util.*;
 /**
  * See /docs/coordinator-api.txt for documentation
  */
-
 @Path("/api/")
 public class Job {
     @Context
@@ -337,7 +336,7 @@ public class Job {
      * Gets all the jobs for the given status.
      * Valid status values are "NEW", PROCESSING", "FINISHED", "FINISHED_WITH_ERRORS"
      * "QUEUED", "STOPPED","EXPIRED", "RESET", "ERROR"
-     * */
+     */
     @GET
     @Path("jobs/status/{value}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -393,7 +392,7 @@ public class Job {
         }
     }
 
-    /** Takes an array of job IDs as input; e.g. [1,2,3]**/
+    /** Takes an array of job IDs as input; e.g. [1,2,3] */
     @PUT
     @Path("jobs/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -484,7 +483,7 @@ public class Job {
     /**
      * Gets all the jobs for the given status.
      * Valid status values are "NEW", PROCESSING", "FINISHED", "QUEUED", "STOPPED","EXPIRED", "RESET", "ERROR"
-     * */
+     */
     @GET
     @Path("jobs/status/{value}/reason/{reason}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -573,7 +572,6 @@ public class Job {
         return Response.status(200).entity(ob.toString()).build();
     }
 
-    /** */
     @GET
     @Deprecated
     @Path("/jobs/days/olderthan/{days}")
@@ -590,7 +588,6 @@ public class Job {
         return Response.status(200).entity(ob.toString()).build();
     }
 
-    /**  */
     @GET
     @Path("/jobs/mins/{mins}/{tomins}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -622,7 +619,6 @@ public class Job {
         return Response.status(200).entity(ob.toString(1)).build();
     }
 
-    /**  */
     @GET
     @Path("/jobs/age/{days}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -638,7 +634,6 @@ public class Job {
         return Response.status(200).entity(ob.toString()).build();
     }
 
-    /** */
     @GET
     @Path("/job/{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -650,7 +645,6 @@ public class Job {
         return Response.status(200).entity(lg.toJson().toString(1)).build();
     }
 
-    /** */
     @GET
     @Path("/job/standardJob/{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -663,8 +657,6 @@ public class Job {
         return Response.status(200).entity(job.toString(1)).build();
     }
 
-
-    /** */
     @GET
     @Path("/job/{id}/full")
     @Produces(MediaType.APPLICATION_JSON)
@@ -683,7 +675,6 @@ public class Job {
     /**
      * Get job specific metrics
      *
-     * @param jobId
      * @return JSON blob that contains data that's easily graphed/displayed with javascript tools
      */
     @GET
@@ -751,7 +742,6 @@ public class Job {
         return Response.status(200).entity(jobResult.toString(1)).build();
     }
 
-    /** */
     @GET
     @Path("/job/{id}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -767,7 +757,6 @@ public class Job {
         return Response.status(200).entity(result.toString()).build();
     }
 
-    /** */
     @GET
     @Path("/job/{id}/history")
     @Produces(MediaType.APPLICATION_JSON)
@@ -781,7 +770,6 @@ public class Job {
         return Response.status(200).entity(historyResult.toString(1)).build();
     }
 
-    /** */
     private JSONArray getHistoryHelper(LGJob lg) {
         List<LGJobHistory> history = lg.getJobHistory();
         JSONArray result = new JSONArray();
@@ -806,7 +794,6 @@ public class Job {
         return Response.status(200).entity(result.toString(1)).build();
     }
 
-    /** */
     private JSONArray getTasksHelper(LGJob lg) {
         JSONObject result = new JSONObject();
         JSONArray s = lg.getTaskList();
@@ -881,13 +868,11 @@ public class Job {
         return lg.getStatusString(lg.getStatus());
     }
 
-    /** */
     private String getStatusHelper(LGJob lg) {
         if (null == lg) { return null; }
         return lg.getStatusString(lg.getStatus());
     }
 
-    /** */
     public static JSONArray getErrorsHelper(LGJob lg) {
         if (null == lg) { return null; }
         List<LGJobError> errors = lg.getJobErrors();
@@ -899,7 +884,7 @@ public class Job {
         return result;
     }
 
-    /** Gets the graph from LemonGraph/DB*/
+    /** Gets the graph from LemonGraph/DB */
     @GET
     @Path("/job/{id}/graph")
     @Produces(MediaType.APPLICATION_JSON)
@@ -972,7 +957,6 @@ public class Job {
         return Response.status(404).entity("Not found").build();
     }
 
-    /** */
     @PUT
     @Path("/job/{id}/cancel")
     @Produces(MediaType.APPLICATION_JSON)
@@ -984,7 +968,6 @@ public class Job {
         return Response.status(200).entity(ret.toString()).build();
     }
 
-    /** */
     @PUT
     @Path("/jobs/cancel")
     @Produces(MediaType.APPLICATION_JSON)
@@ -1186,8 +1169,6 @@ public class Job {
 
     /**
      * Used by /jobs/retry and /job/retry
-     *
-     *
      *
      * @param jobId the job id to retry
      * @param taskId if you want to only retry a certain task inside a job. set to "" otherwise
@@ -1428,7 +1409,7 @@ public class Job {
      * job_data {}   - New Data to post to graph
      * job_config.adapers() - Just like the post job, it's a list of adapters
      *
-     * */
+     */
     @POST
     @Path("/job/{id}/insert")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -1532,7 +1513,7 @@ public class Job {
         // Set the payload type
         newPayload.setPayloadType(LGConstants.LG_PAYLOAD_TYPE_COMMAND);
 
-        /**
+        /*
          rrayList<String> approvedAdapters = new ArrayList<>();
          for (int i=0; i< adapterList.length(); i++) {
          approvedAdapters.add(adapterList.getString(i));

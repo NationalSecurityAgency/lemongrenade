@@ -336,7 +336,7 @@ public class LemonGraph {
      *
      * @param resultdata Json data that's returned from a LemonGraph query  {'data': 'lemongraph_raw_result'}
      * @return Hashmap A map of {query, all_results_for_that_query}
-     * */
+     */
     public static HashMap parseLemonGraphResult(JSONObject resultdata) {
         HashMap<String, JSONArray> parseMap = new HashMap<String, JSONArray>();
 
@@ -462,7 +462,7 @@ public class LemonGraph {
      * @param meta is the 'meta' data to store in the graph at create time
      * @return Job UUID as defined by LEMONGRAPH
      * @throws Exception when failing to connect to LEMONGRAPH or failing to hit createGraph
-     **/
+     */
     public static String createGraph(String graphId, JSONObject meta) throws Exception {
         if(graphId != null && graphId.length() > 0 && graphId.length() != LGJob.JOB_ID_LENGTH) {
             throw new Exception("Invalid length for graph ID:"+graphId);
@@ -485,7 +485,7 @@ public class LemonGraph {
      *
      * @param meta posts the meta data to the graph at create time
      * @return LemonGraphResponse  the result that LemonGraph returns
-     * */
+     */
     private static LemonGraphResponse createGraphHelper(String graphId, JSONObject meta) {
         JSONObject metaWrapper = new JSONObject();
         metaWrapper.put("meta",meta);
@@ -541,7 +541,6 @@ public class LemonGraph {
      * Adds the response nodes/edges from LGPayload into LEMONGRAPH.
      * @param payload LGPayload
      * @return Returns a LemonGraphResponse
-     * @throws InvalidGraphException
      */
     public static LemonGraphResponse postToGraph(LGPayload payload) throws InvalidGraphException {
         LemonGraphObject lgo = buildLemonGraphFromPayloadNodesandEdges(payload.getResponseNodes(),

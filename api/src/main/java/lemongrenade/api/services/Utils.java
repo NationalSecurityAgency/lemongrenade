@@ -1109,7 +1109,7 @@ public class Utils {
         return deleteHelper(jobIDs);
     }
 
-    /*** Used by single and bulk delete*/
+    /** Used by single and bulk delete */
     public static JSONObject deleteHelper(Set<String> jobIDs) {
         // Build return object common parts
         Set<String> allIDs = new HashSet();
@@ -1187,7 +1187,6 @@ public class Utils {
     /**
      * Used by /job/ID/cancel and /jobs/cancel
      * @param jobId the id of the job to cancel
-     * @return
      */
     public static JSONObject cancelHelper(String jobId) {
         HashSet<String> jobIDs = new HashSet();
@@ -1229,7 +1228,6 @@ public class Utils {
     /**
      * Used by /job/ID/cancel and /jobs/cancel
      * @param jobIDs the IDs of the job to cancel
-     * @return
      */
     public static JSONObject cancelHelper(Set<String> jobIDs) {
         JSONObject ret = new JSONObject()
@@ -1318,9 +1316,6 @@ public class Utils {
     /**
      * Used by /jobs/reset and /job/reset
      *
-     *
-     *
-     * @param jobId
      * @param reason Is a value supplied by the api user to say why it was reset. They can query for this value later
      * @param allowOverwrite  - allows a follow on reset to rewrite the REASON setting, otherwise, its kept the same.
      *                          default is false
