@@ -80,7 +80,6 @@ public class RestV2 {
 
 	/**
 	 * Sets a job to STOPPED and then deletes it. Endpoint available at /rest/v2/delete/{id}
-	 * @param jobId
 	 * @return Returns a Response object with body as standard job return format containing result of delete request.
 	 */
 	@DELETE
@@ -96,7 +95,6 @@ public class RestV2 {
 
 	/**
 	 * Sets a job to STOPPED and then deletes it. Endpoint available at /rest/v2/delete/{id}
-	 * @param user
 	 * @return Returns a Response object with body as standard job return format containing result of delete request.
 	 */
 	@DELETE
@@ -136,7 +134,6 @@ public class RestV2 {
 
 	/**
 	 * Sets a job to STOPPED . Endpoint available at /rest/v2/stop/{id}
-	 * @param jobId
 	 * @return Returns a Response object with body as standard job return format containing result of stop request.
 	 */
 	@PUT

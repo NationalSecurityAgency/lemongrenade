@@ -121,7 +121,6 @@ public class RabbitMQConsumer implements Serializable {
      *  possible error message) so that the coordinator can set the task and job status to ERROR. Otherwise, the
      *  end user never knows about the problem and the job will appear to never finish.
      *
-     * @param msgId
      */
     public void fail(Long msgId) {//retry failures 2 times
         try {
