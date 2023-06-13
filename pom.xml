@@ -13,7 +13,7 @@
   </modules>
   <properties>
     <jersey.version>2.27</jersey.version>
-    <jetty.version>9.4.17.v20190418</jetty.version>
+    <jetty.version>9.4.51.v20230217</jetty.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
